@@ -22,13 +22,11 @@ ALPHABET = ['A';'T';'C';'G']
 
 ALPHABET_SYMBOLS = [Symbol(i) for i in ALPHABET]
 ALPHABET_DIM = length(ALPHABET_SYMBOLS)
-MAX_STRING_LENGTH = 500
+MAX_STRING_LENGTH = 256
 
 
-BSIZE = 256
-READ_LENGTH = 300
-OVERLAP_LENGTH = 50
-PROB_SAME = 0.9
+BSIZE = 512
+PROB_SAME = 0.5
 
 
 OUT_CHANNELS = 8
@@ -81,8 +79,10 @@ function generateReadsWithOverlap(n::Int64, p_same::Float64)
     end
 
     @assert Ypos <= Yneg
+
+    averageY = Ypos + Yneg + y23
  
-    return Ranc, Rpos, Rneg, Ypos, Yneg, y23
+    return Ranc, Rpos, Rneg, Ypos, Yneg, y23, averageY
 end
 
 
@@ -120,9 +120,10 @@ function getRawDataBatch()
     y12 = Vector{Float32}()
     y13 = Vector{Float32}()
     y23 = Vector{Float32}()
+    yAvg = []
 
     for i in 1:BSIZE
-        r1, r2, r3, y12_, y13_, y23_ = generateReadsWithOverlap(READ_LENGTH, PROB_SAME)
+        r1, r2, r3, y12_, y13_, y23_, yAvg_ = generateReadsWithOverlap(MAX_STRING_LENGTH, PROB_SAME)
         push!(x1, Flux.unsqueeze(oneHotPositionalEmbeddingString(r1), 1))
         push!(x2, Flux.unsqueeze(oneHotPositionalEmbeddingString(r2), 1))
         push!(x3, Flux.unsqueeze(oneHotPositionalEmbeddingString(r3), 1))
@@ -130,13 +131,20 @@ function getRawDataBatch()
         push!(y12, y12_)
         push!(y13, y13_)
         push!(y23, y23_)
-
+        push!(yAvg, yAvg_)
     end
     
     x1 = convert.(Float32, vcat(x1...))
     x2 = convert.(Float32, vcat(x2...))
     x3 = convert.(Float32, vcat(x3...))
-    
+
+    yAvg = mean(yAvg)
+
+    # Normalize all y values
+    y12 = y12 / yAvg
+    y13 = y13 / yAvg
+    y23 = y23 / yAvg
+
     return x1, x2, x3, y12, y13, y23
 end
 
@@ -186,7 +194,7 @@ function tripletLoss(Xacr, Xpos, Xneg, y12, y13, y23)
     mseLoss = (posEmbedDist - y12).^2 + (negEmbedDist - y13).^2 + (PosNegEmbedDist - y23).^2
 
     L = 1
-    R = 1
+    R = 0.1
 
     return mean(R * rankLoss + L * sqrt.(mseLoss))
 
@@ -220,10 +228,12 @@ function trainingLoop!(loss, model, train_dataset, opt; numEpochs=100)
 end
 
 
-opt = ADAM(0.01, (0.9, 0.999))
+opt = ADAM(0.001, (0.9, 0.999))
 oneHotTrainingDataset = getoneHotTrainingDataset(500) .|> DEVICE
 
 embeddingModel = getModel() |> DEVICE
 
 trainingLoop!(tripletLoss, embeddingModel, oneHotTrainingDataset, opt)
 
+# TODO: Investigate why NANs
+# Implement Ls (weighting factor) L/R heuristic
