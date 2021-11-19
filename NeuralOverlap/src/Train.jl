@@ -28,13 +28,13 @@ using .Model
 DEVICE = gpu
 
 
-function trainingLoop!(loss, model, train_dataset, opt, norm; numEpochs=100)
+function trainingLoop!(loss, model, trainDataset, opt, norm; numEpochs=100)
     @info("Beginning training loop...")
     local training_loss
     ps = params(model)
 
     for epoch in 1:numEpochs
-        for (batch_idx, batch) in enumerate(train_dataset)
+        for (batch_idx, batch) in enumerate(trainDataset)
             gs = gradient(ps) do
                 training_loss = loss(batch..., embeddingModel=embeddingModel, norm=norm)
                 return training_loss
@@ -56,10 +56,25 @@ embeddingModel = Model.getModel(MAX_STRING_LENGTH, BSIZE, FLAT_SIZE, EMBEDDING_D
 trainingLoop!(Model.tripletLoss, embeddingModel, oneHotTrainingDataset, opt, Utils.norm2)
 
 
-R1 = "ATCGCGATCGCGC"
-R2 = "ATCGCGATCGCGC"
+function approxHammingDistance(x1, x2):: Float32
+    return Utils.norm2(x1 - x2, dims=1)
+end
 
-oneHotBatch = Dataset.oneHotBatchSequences([R1, R2])
 
-embeddingModel(embedSequence)
+function approximateStringDistance(s1, s2)
+    rawSequenceBatch = [s1, s2]
+    oneHotBatch = Dataset.oneHotBatchSequences(rawSequenceBatch, MAX_STRING_LENGTH, BSIZE)
+    sequenceEmbeddings = embeddingModel(oneHotBatch)[1:length(rawSequenceBatch), :]
+    dist = Utils.norm2(sequenceEmbeddings[1, :] - sequenceEmbeddings[2, :], dims=1)
+    return dist
+end
 
+
+# R1 = "ATCGCGATCGCGC"
+# R2 = "ATCGCGATCGCGC"
+
+# rawSequenceBatch = [R1, R2]
+
+# oneHotBatch = Dataset.oneHotBatchSequences(rawSequenceBatch, MAX_STRING_LENGTH, BSIZE)
+
+# sequenceEmbeddings = embeddingModel(oneHotBatch)[1:length(rawSequenceBatch), :]

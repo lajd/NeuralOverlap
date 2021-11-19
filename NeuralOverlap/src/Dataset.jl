@@ -131,13 +131,18 @@ module Dataset
         return dataset
     end
 
-    function oneHotBatchSequences(seqArr:: Array{String})
+    function oneHotBatchSequences(seqArr:: Array{String}, maxSeqLen, bSize)
+        
         embeddings = []
     
         for seq in seqArr
-            push!(embeddings, Flux.unsqueeze(oneHotPositionalEmbeddingString(seq), 1))
+            push!(embeddings, Flux.unsqueeze(oneHotPositionalEmbeddingString(seq,maxSeqLen), 1))
         end
-        embeddings = vcat(embeddings...)
+
+        vpad = zeros(bSize - length(seqArr), 4, maxSeqLen)        
+        embeddings = vcat(embeddings..., vpad)
+
+        embeddings = convert.(Array{Float32}, embeddings)
         return embeddings
     end
     
