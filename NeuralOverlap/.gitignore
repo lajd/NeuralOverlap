@@ -1,0 +1,18 @@
+.DS_Store
+.sublime-project
+.sublime-workspace
+.pyc
+.idea
+.vscode
+*venv
+*tfstate*
+*.terraform
+*.out
+**/.pytest_cache
+# Versioning
+npm-debug.log
+dump.rdb
+
+
+# Models
+saved_models

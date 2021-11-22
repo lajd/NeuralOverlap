@@ -142,7 +142,7 @@ module Dataset
         vpad = zeros(bSize - length(seqArr), 4, maxSeqLen)        
         embeddings = vcat(embeddings..., vpad)
 
-        embeddings = convert.(Array{Float32}, embeddings)
+        embeddings = convert(Array{Float32}, embeddings)
         return embeddings
     end
     

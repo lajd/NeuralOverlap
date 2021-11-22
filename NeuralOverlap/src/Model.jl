@@ -4,17 +4,22 @@ module Model
     using BenchmarkTools
     using Random
     using Statistics
-
-    using CUDA
-    CUDA.allowscalar(false)
     using Flux
+
     using StatsBase: wsample
     using Base.Iterators: partition
     using Distances
     using LinearAlgebra
     using Zygote
 
-    DEVICE = gpu
+    try
+        using CUDA
+        CUDA.allowscalar(false)
+        global DEVICE = Flux.gpu
+    catch
+        global DEVICE = Flux.cpu
+    end
+
 
     function getModel(maxSeqLen, bSize, flatSize, embDim)::Chain
         embeddingModel = Chain(
