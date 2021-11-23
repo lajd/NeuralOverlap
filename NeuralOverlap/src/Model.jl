@@ -19,9 +19,28 @@ module Model
     catch
         global DEVICE = Flux.cpu
     end
+    
+    function getLossRegularizationSteps(maxEpochs::Int64)::Dict
+        step = Int32(maxEpochs / 5)
+        ls = Dict(
+            step * 0 => (0., 10.),
+            step * 1 => (10., 10.),
+            step * 2 => (10., 1.),
+            step * 3 => (5., 0.1),
+            step * 4 => (1., 0.01),
+        )
+        return ls
+    end
+
+    function getRegularization(epoch::Int64, regularizationSteps::Dict, lReg::Float64, rReg::Float64)::Tuple{Float64, Float64}
+        if haskey(regularizationSteps, epoch)
+            return regularizationSteps[epoch]
+        end
+        return lReg, rReg
+    end
 
 
-    function getModel(maxSeqLen, bSize, flatSize, embDim)::Chain
+    function getModel(maxSeqLen::Int64, bSize::Int64, flatSize::Int64, embDim::Int64)::Chain
         embeddingModel = Chain(
             x -> reshape(x, :, 1, maxSeqLen),
             Conv((3,), 1 => 8, relu; bias = false, stride=1, pad=1),
@@ -33,11 +52,12 @@ module Model
             Dense(flatSize, embDim),
             x -> transpose(x),
         )
-
         return embeddingModel
     end
 
-    function tripletLoss(Xacr, Xpos, Xneg, y12, y13, y23; embeddingModel, norm)
+    function tripletLoss(Xacr::Array{Float32}, Xpos::Array{Float32},
+         Xneg::Array{Float32}, y12::Array{Float32}, y13::Array{Float32},
+         y23::Array{Float32}; embeddingModel, norm, lReg::Float64=1.0, rReg::Float64=0.1)
         Embacr = embeddingModel(Xacr)
         Embpos = embeddingModel(Xpos)
         Embneg = embeddingModel(Xneg)
@@ -50,9 +70,30 @@ module Model
 
         mseLoss = (posEmbedDist - y12).^2 + (negEmbedDist - y13).^2 + (PosNegEmbedDist - y23).^2
 
-        L = 1
-        R = 0.1
-
-        return mean(R * rankLoss + L * sqrt.(mseLoss))
+        return mean(lReg * rankLoss + rReg * sqrt.(mseLoss))
     end
 end
+
+
+# self.conv = nn.Sequential(
+#     nn.Conv1d(self.mtc_input, channel, 3, 1, padding=1, bias=False),
+#     POOL(2),
+#     nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False),
+#     POOL(2),
+#     nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False),
+#     POOL(2),
+#     nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False),
+#     POOL(2),
+#     nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False),
+#     POOL(2),
+#     nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False),
+#     POOL(2),
+#     nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False),
+#     POOL(2),
+#     nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False),
+#     POOL(2),
+#     nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False),
+#     POOL(2),
+#     nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False),
+#     POOL(2),
+# )

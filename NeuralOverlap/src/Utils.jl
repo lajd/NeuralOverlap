@@ -12,7 +12,7 @@ module Utils
     end
 
     function getTrainingScore(modelName::String, modelSaveSuffix::String)::Float32
-        suffix = split(modelName, "_")[end]
+        suffix = split(modelName, "_")[end - 1]
         trainingLoss = split(suffix, modelSaveSuffix)[1]
         return parse(Float32, trainingLoss)
     end

@@ -54,7 +54,10 @@ embeddingModel = LoadModel(Utils.getBestModelPath(Constants.MODEL_SAVE_DIR, Cons
 R1 = "ATCGCGATCGCGC"
 R2 = "ATCGCGATCGCGC"
 
-Infer(R1, R2, embeddingModel)
+dist = Infer(R1, R2, embeddingModel)
+
+@info("Embedding distance is: %s", dist)
+@info("Hamming distance is: %s", hamming(R1, R2))
 
 # rawSequenceBatch = [R1, R2]
 

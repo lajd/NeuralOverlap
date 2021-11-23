@@ -7,7 +7,7 @@ module Dataset
     using Zygote: gradient, @ignore
     using Distances
 
-    function generateReadsWithOverlap(n::Int64, p_same::Float64, alphabet, )
+    function generateReadsWithOverlap(n::Int64, p_same::Float64, alphabet::Vector{Char}, )
         """
         Generate reads with some overlaps, with modifucations
 
@@ -52,13 +52,13 @@ module Dataset
 
         @assert Ypos <= Yneg
 
-        averageY = Ypos + Yneg + y23
+        averageY = (Ypos + Yneg + y23) / 3
     
         return Ranc, Rpos, Rneg, Ypos, Yneg, y23, averageY
     end
 
 
-    function oneHotPositionalEmbeddingString(s::String, maxSeqLen)::Matrix
+    function oneHotPositionalEmbeddingString(s::String, maxSeqLen::Int64)::Matrix
         ls = length(s)
         oneHotSequnece = Float32.(zeros(4, maxSeqLen))
 
@@ -84,7 +84,7 @@ module Dataset
 
 
 
-    function getRawDataBatch(maxSeqLen, probSame, alphabet, bsize)
+    function getRawDataBatch(maxSeqLen::Int64, alphabet::Vector{Char}, bsize::Int64)
 
         x1 = []
         x2 = []
@@ -93,6 +93,9 @@ module Dataset
         y13 = Vector{Float32}()
         y23 = Vector{Float32}()
         yAvg = []
+
+        
+        probSame = max(rand(), 0.1)
 
         for i in 1:bsize
             r1, r2, r3, y12_, y13_, y23_, yAvg_ = generateReadsWithOverlap(maxSeqLen, probSame, alphabet)
@@ -122,16 +125,16 @@ module Dataset
     end
 
 
-    function getoneHotTrainingDataset(num_batches::Int, maxSeqLen, pSame, alphabet, bSize)
+    function getoneHotTrainingDataset(num_batches::Int, maxSeqLen::Int64, alphabet::Vector{Char}, bSize::Int64)
         dataset = []
         for i in 1:num_batches
-            s1, s2, s3, y12, y13, y23 = convert.(Array{Float32}, @ignore getRawDataBatch(maxSeqLen, pSame, alphabet, bSize))
+            s1, s2, s3, y12, y13, y23 = convert.(Array{Float32}, @ignore getRawDataBatch(maxSeqLen, alphabet, bSize))
             push!(dataset, (s1, s2, s3, y12, y13, y23))
         end
         return dataset
     end
 
-    function oneHotBatchSequences(seqArr:: Array{String}, maxSeqLen, bSize)
+    function oneHotBatchSequences(seqArr:: Array{String}, maxSeqLen::Int64, bSize::Int64)
         
         embeddings = []
     
@@ -146,5 +149,4 @@ module Dataset
         return embeddings
     end
     
-
 end
