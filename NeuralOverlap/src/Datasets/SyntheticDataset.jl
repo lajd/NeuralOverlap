@@ -7,12 +7,14 @@ module Dataset
     using Zygote: gradient, @ignore
     using Distances
 
-    function generateReadsWithOverlap(n::Int64, p_same::Float64, alphabet::Vector{Char}, )
+    function generateReadsWithOverlap(minSequenceLength::Int64, maxSequenceLength::Int64, p_same::Float64, alphabet::Vector{Char}, )
         """
         Generate reads with some overlaps, with modifucations
 
         Returns the concatenated reads, and the hamming distance between their overlaps
         """
+
+        n = rand(minSequenceLength:maxSequenceLength)
         
         r1 = randstring(alphabet, n)
         r2 = ""
@@ -84,7 +86,7 @@ module Dataset
 
 
 
-    function getRawDataBatch(maxSeqLen::Int64, alphabet::Vector{Char}, bsize::Int64)
+    function getRawDataBatch(minSequenceLength::Int64, maxSequenceLength::Int64, alphabet::Vector{Char}, bsize::Int64)
 
         x1 = []
         x2 = []
@@ -98,10 +100,10 @@ module Dataset
         probSame = max(rand(), 0.1)
 
         for i in 1:bsize
-            r1, r2, r3, y12_, y13_, y23_, yAvg_ = generateReadsWithOverlap(maxSeqLen, probSame, alphabet)
-            push!(x1, Flux.unsqueeze(oneHotPositionalEmbeddingString(r1, maxSeqLen), 1))
-            push!(x2, Flux.unsqueeze(oneHotPositionalEmbeddingString(r2, maxSeqLen), 1))
-            push!(x3, Flux.unsqueeze(oneHotPositionalEmbeddingString(r3, maxSeqLen), 1))
+            r1, r2, r3, y12_, y13_, y23_, yAvg_ = generateReadsWithOverlap(minSequenceLength, maxSequenceLength, probSame, alphabet)
+            push!(x1, Flux.unsqueeze(oneHotPositionalEmbeddingString(r1, maxSequenceLength), 1))
+            push!(x2, Flux.unsqueeze(oneHotPositionalEmbeddingString(r2, maxSequenceLength), 1))
+            push!(x3, Flux.unsqueeze(oneHotPositionalEmbeddingString(r3, maxSequenceLength), 1))
 
             push!(y12, y12_)
             push!(y13, y13_)
@@ -125,10 +127,10 @@ module Dataset
     end
 
 
-    function getoneHotTrainingDataset(num_batches::Int, maxSeqLen::Int64, alphabet::Vector{Char}, bSize::Int64)
+    function getoneHotTrainingDataset(num_batches::Int, minSequenceLength::Int64, manSequenceLength::Int64, alphabet::Vector{Char}, bSize::Int64)
         dataset = []
         for i in 1:num_batches
-            s1, s2, s3, y12, y13, y23 = convert.(Array{Float32}, @ignore getRawDataBatch(maxSeqLen, alphabet, bSize))
+            s1, s2, s3, y12, y13, y23 = convert.(Array{Float32}, @ignore getRawDataBatch(minSequenceLength, manSequenceLength, alphabet, bSize))
             push!(dataset, (s1, s2, s3, y12, y13, y23))
         end
         return dataset

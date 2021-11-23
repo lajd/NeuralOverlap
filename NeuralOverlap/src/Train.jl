@@ -91,8 +91,9 @@ end
 
 
 opt = ADAM(0.001, (0.9, 0.999))
-oneHotTrainingDataset = Dataset.getoneHotTrainingDataset(Constants.NUM_BATCHES,  Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.BSIZE) .|> DEVICE
+oneHotTrainingDataset = Dataset.getoneHotTrainingDataset(Constants.NUM_BATCHES,  Constants.MIN_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.BSIZE) .|> DEVICE
 
 embeddingModel = Model.getModel(Constants.MAX_STRING_LENGTH, Constants.BSIZE, Constants.FLAT_SIZE, Constants.EMBEDDING_DIM) |> DEVICE
 
-trainingLoop!(Model.tripletLoss, embeddingModel, oneHotTrainingDataset, opt, Utils.l2Norm)
+trainingLoop!(Model.tripletLoss, embeddingModel, oneHotTrainingDataset, opt, Utils.l2Norm, numEpochs=Constants.NUM_EPOCHS)
+

@@ -8,10 +8,12 @@ module Constants
     ALPHABET_SYMBOLS = [Symbol(i) for i in ALPHABET]
     ALPHABET_DIM = length(ALPHABET_SYMBOLS)
 
-    MIN_STRING_LENGTH = 64
+    MIN_STRING_LENGTH = 8
     MAX_STRING_LENGTH = 512
 
     BSIZE = 512
+
+    NUM_EPOCHS = 100
 
     # Model
     OUT_CHANNELS = 8
@@ -19,7 +21,7 @@ module Constants
     FLAT_SIZE = Int(MAX_STRING_LENGTH / 2 * ALPHABET_DIM * OUT_CHANNELS)
 
     # Shared
-    NUM_BATCHES = 2
+    NUM_BATCHES = 512
     MODEL_SAVE_DIR = "saved_models"
     MODEL_SAVE_SUFFIX = "_synthetic.bson"
 end
