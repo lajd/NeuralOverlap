@@ -66,6 +66,8 @@ function trainingLoop!(loss, model, trainDataset, opt, norm; numEpochs=100, logI
             sumEpochLoss = sumEpochLoss + trainingLoss
             batchNum += 1
 
+            @info("Loss %s", trainingLoss)
+
             if batchNum % logInterval == 0
                 @info("Processed %s / %s batches in epoch", batchNum, Constants.NUM_BATCHES)
             end
@@ -93,7 +95,8 @@ end
 opt = ADAM(0.001, (0.9, 0.999))
 oneHotTrainingDataset = Dataset.getoneHotTrainingDataset(Constants.NUM_BATCHES,  Constants.MIN_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.BSIZE) .|> DEVICE
 
-embeddingModel = Model.getModel(Constants.MAX_STRING_LENGTH, Constants.BSIZE, Constants.FLAT_SIZE, Constants.EMBEDDING_DIM) |> DEVICE
+
+embeddingModel = Model.getModel(Constants.MAX_STRING_LENGTH, Constants.BSIZE, Constants.FLAT_SIZE, Constants.EMBEDDING_DIM, numConvLayers=Constants.NUM_CONV_LAYERS, numFCLayers=Constants.NUM_FC_LAYERS) |> DEVICE
 
 trainingLoop!(Model.tripletLoss, embeddingModel, oneHotTrainingDataset, opt, Utils.l2Norm, numEpochs=Constants.NUM_EPOCHS)
 
