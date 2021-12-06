@@ -121,12 +121,12 @@ module Utils
     function norm2(A; dims)
         B = sum(x -> x^2, A; dims=dims)
         C = sqrt.(B)
-        return B
+        return C
     end
 
     function rowCosineSimilarity(a, b)
         denom = vec(Utils.norm2(a, dims=1)) .* vec(Utils.norm2(b, dims=1))
-        return 1 .- (diag((transpose(a)* b)) ./ denom)
+        return 1 .- diag((transpose(a)* b)) ./ denom
     end
 
     function Norm(x1, x2; dims=1, method="l2")

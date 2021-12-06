@@ -18,14 +18,14 @@ module Constants
     WITH_BATCHNORM = true
     WITH_DROPOUT = true
 
-    NUM_TRAINING_EXAMPLES = 1000
-    NUM_EVAL_EXAMPLES = 500
-    # NUM_TRAINING_EXAMPLES = 10000
-    # NUM_EVAL_EXAMPLES = 5000
+    # NUM_TRAINING_EXAMPLES = 1000
+    # NUM_EVAL_EXAMPLES = 500
+    NUM_TRAINING_EXAMPLES = 10000
+    NUM_EVAL_EXAMPLES = 5000
     EVAL_BSIZE = 1
 
     # Model
-    OUT_CHANNELS = 8
+    OUT_CHANNELS = 16
     KERNEL_SIZE = 3
     EMBEDDING_DIM = 128
 
@@ -36,7 +36,7 @@ module Constants
     # REMOVE ME
     ALLOW_SCALAR = true
 
-    EXPERIMENT_NAME = "1_conv_1_fc_8000_vecs_no_grad_clip_random_shuffle_eval"
+    EXPERIMENT_NAME = "3_conv_2_fc_w_drop_w_bn_cosine"
     EXPERIMENT_DIR = joinpath("data/experiments", EXPERIMENT_NAME)
     MODEL_SAVE_DIR = joinpath(EXPERIMENT_DIR, "saved_models")
     DATASET_SAVE_PATH = joinpath(EXPERIMENT_DIR, "dataset.jld")

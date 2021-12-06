@@ -121,7 +121,7 @@ function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100)
     ps = params(model)
 
     lReg::Float64 = 1.
-    rReg::Float64 = 0.1
+    rReg::Float64 = 1.
 
     regularizationSteps = Model.getLossRegularizationSteps(numEpochs)
     
@@ -145,7 +145,7 @@ function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100)
                 reads = batchTuple[1:3]
                 tensorBatch = batchTuple[4:end] |> DEVICE
 
-                lReg, rReg = Model.getRegularization(epoch, regularizationSteps, lReg, rReg)
+                # lReg, rReg = Model.getRegularization(epoch, regularizationSteps, lReg, rReg)
                 gs = gradient(ps) do
                     trainingLoss = Model.tripletLoss(tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg)
                     return trainingLoss
@@ -175,11 +175,11 @@ function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100)
             @printf("maxGS: %s, minGS: %s, meanGS: %s\n", maximum(maxgsArray), minimum(mingsArray), mean(meangsArray))
 
             # Set to test mode
-            trainmode!(model, false)
-            totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets = evaluateModel(evalBatches, model)
             @printf("-----Evaluation dataset-----")
-            @printf("totalMSE: %s, averageMSEPerTriplet: %s, averageAbsError: %s, maxAbsError: %s, numTriplets: %s\n",
-            totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets)
+            trainmode!(model, false)
+            evaluateModel(evalBatches, model)
+            # @printf("totalMSE: %s, \n averageMSEPerTriplet: %s, \n averageAbsError: %s, \nmaxAbsError: %s,\n numTriplets: %s\n",
+            # totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets)
 
             # Save the model, removing old ones
             if epoch > 1 && averageEpochLoss < bestAverageEpochLoss

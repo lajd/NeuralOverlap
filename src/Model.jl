@@ -13,6 +13,7 @@ module Model
     using Distances
     using LinearAlgebra
     using Zygote
+    using Printf
 
     using ..Utils
     using ..Constants
@@ -283,6 +284,7 @@ module Model
         rankLoss = lReg * rankLoss
         mseLoss = rReg * sqrt.(mseLoss)
         # println("rank loss %s, mse loss %s", mseLoss)
+        # @printf("Rank loss %s, MSE loss %s", mean(rankLoss), mean(mseLoss))
         return mean(rankLoss + mseLoss)
     end
 end
