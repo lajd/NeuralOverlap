@@ -22,15 +22,14 @@ module Constants
     # NUM_EVAL_EXAMPLES = 500
     NUM_TRAINING_EXAMPLES = 10000
     NUM_EVAL_EXAMPLES = 5000
-    EVAL_BSIZE = 1
 
     # Model
-    OUT_CHANNELS = 16
+    OUT_CHANNELS = 8
     KERNEL_SIZE = 3
     EMBEDDING_DIM = 128
 
     # Shared
-    NUM_BATCHES = 128
+    NUM_BATCHES = 512
     MODEL_SAVE_SUFFIX = "_synthetic.bson"
 
     # REMOVE ME

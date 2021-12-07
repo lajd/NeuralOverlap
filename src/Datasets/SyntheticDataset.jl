@@ -11,16 +11,38 @@ module Dataset
     using Distances
 
     using BenchmarkTools
+    using Plots
+    using Distributions
 
     using ..Utils
 
 
-    function generateSequences(numSequences::Int64, minSequenceLength::Int64, maxSequenceLength::Int64, alphabet::Vector{Char})::Array{String}
+    function generateSequences(numSequences::Int64, minSequenceLength::Int64,
+         maxSequenceLength::Int64, alphabet::Vector{Char},
+         ratioOfRandom=0.2, similarityMin=0.6, similarityMaxProb=0.95,
+         )::Array{String}
+         n = rand(minSequenceLength:maxSequenceLength)
         sequenceSet = Set()
-        for _ in 1:numSequences
+        push!(sequenceSet, randstring(alphabet, n))
+        for _ in 1:numSequences - 1
             n = rand(minSequenceLength:maxSequenceLength)
-            s = randstring(alphabet, n)
-            push!(sequenceSet, s)
+            if rand() < ratioOfRandom
+                s = randstring(alphabet, n)
+                push!(sequenceSet, s)
+            else
+                ref = rand(sequenceSet)
+                s = []
+                r = rand(Uniform(similarityMin, similarityMaxProb), 1)[1]
+                for char in ref
+                    if rand() < r
+                        push!(s, char)
+                    else
+                        push!(s, rand(alphabet))
+                    end
+                end
+                s = join(s)
+                push!(sequenceSet, s)
+            end
         end
         return collect(sequenceSet)
     end
@@ -35,7 +57,7 @@ module Dataset
     end
 
     function TrainingDataset(numSequences::Int64, minSequenceLength::Int64, maxSequenceLength::Int64, alphabet::Vector{Char}, alphabetSymbols::Vector{Symbol}, pairwiseDistanceFun)
-        @info("Creating training dataset...")
+        @info("Creating dataset... with %s sequences", numSequences)
         @time begin
             generatedSequences = Dataset.generateSequences(numSequences, minSequenceLength, maxSequenceLength, alphabet)
             oneHotEncodedSequences = Dataset.oneHotSequences(generatedSequences, maxSequenceLength, alphabetSymbols)
@@ -243,4 +265,13 @@ module Dataset
         embeddings = convert(Array{Float32}, embeddings)
         return embeddings
     end
+
+    function plotSequenceDistances(distanceMat; maxSamples = 500)
+        n = size(distanceMat)[1]
+        randSamplesX = a = sample(1:n, maxSamples, replace = false)
+        randSamplesY = a = sample(1:n, maxSamples, replace = false)
+        dists = [distanceMat[i, j] for (i, j) in  zip(randSamplesX, randSamplesY)]        
+        plot(1:maxSamples, dists)
+    end
+
 end

@@ -1,3 +1,5 @@
+
+
 module Utils
 
     using Distances
@@ -6,10 +8,10 @@ module Utils
     using Printf
     using Flux
 
+
     try
         using CUDA
         # TODO: Don't require allow scalar
-        CUDA.allowscalar(Constants.ALLOW_SCALAR)
         global DEVICE = Flux.gpu
         global ArrayType = Union{Vector{Float32}, Matrix{Float32}, CuArray{Float32}}
     catch e
@@ -129,11 +131,82 @@ module Utils
         return 1 .- diag((transpose(a)* b)) ./ denom
     end
 
-    function Norm(x1, x2; dims=1, method="l2")
-        return Utils.rowCosineSimilarity(x1, x2) |> DEVICE
-        # return vec(Utils.l2Norm(x1 - x2, dims=dims))
+    function EmbeddingDistance(x1, x2; dims=1, method="cosine")
+        if method == "l2"
+            return vec(Utils.l2Norm(x1 - x2, dims=dims)) |> DEVICE
+        elseif method == "cosine"
+            return Utils.rowCosineSimilarity(x1, x2) |> DEVICE
+        else
+            throw("Method not recognized")
+        end
     end
 
+    function evaluateModel(evalBatches, model, maxStringLength)
+
+        totalMSE = 0
+        numTriplets = 0
+    
+        averageAbsErrorArray = []
+        maxAbsErrorArray = []
+        totalAbsError = 0 
+
+        model = model |> DEVICE
+    
+    
+        for fullBatch in evalBatches
+            # fullBatch = dataHelper.getTripletBatch(Constants.BSIZE)  
+            # trainDataHelper.shuffleTripletBatch!(fullBatch)
+            # fullBatch = trainDataHelper.extractBatchSubsets(fullBatch, 5)
+    
+            reads = fullBatch[1:3]
+            batch = fullBatch[4:end]
+        
+            batch = batch |> DEVICE
+        
+            Xacr, Xpos, Xneg, y12, y13, y23 = batch
+        
+            Eacr = model(Xacr)
+            Epos = model(Xpos)
+            Eneg = model(Xneg)
+        
+            # MSE
+            posEmbedDist = Utils.EmbeddingDistance(Eacr, Epos, dims=1) |> DEVICE # 1D dist vector of size bsize
+            negEmbedDist =  Utils.EmbeddingDistance(Eacr, Eneg, dims=1) |> DEVICE
+            PosNegEmbedDist =  Utils.EmbeddingDistance(Epos, Eneg, dims=1) |> DEVICE
+    
+            # @assert maximum(posEmbedDist) <= 1
+            @assert maximum(y12) <= 1
+    
+            d12 = abs.(posEmbedDist - y12) * maxStringLength
+            d13 = abs.(negEmbedDist - y13) * maxStringLength
+            d23 = abs.(PosNegEmbedDist - y23) * maxStringLength
+    
+            totalAbsError += sum(d12) + sum(d13) + sum(d23)
+            
+            averageAbsError = mean([mean(d12), mean(d13), mean(d23)])
+            push!(averageAbsErrorArray, averageAbsError)
+            maxAbsError = maximum([maximum(d12), maximum(d13), maximum(d23)])
+            push!(maxAbsErrorArray, maxAbsError)
+    
+            MSE = ((posEmbedDist - y12).^2 + (negEmbedDist - y13).^2 + (PosNegEmbedDist - y23).^2) 
+            MSE = mean(sqrt.(MSE))
+            totalMSE += MSE
+            numTriplets += size(Xacr)[3]
+        end
+    
+        averageAbsError = mean(averageAbsErrorArray)
+        maxAbsError = maximum(maxAbsErrorArray)
+    
+        averageMSEPerTriplet = totalMSE / numTriplets
+        @printf("Epoch MSE is %s \n", totalMSE)
+        @printf("Average MSE per triplet is %s \n", round(averageMSEPerTriplet, digits=4))
+        @printf("Average abs error is %s \n", round(averageAbsError, digits=4))
+        @printf("Max abs error is %s \n", round(maxAbsError, digits=4))
+        @printf("Total abs error is %s \n", totalAbsError, )
+        @printf("Number of triplets compared %s \n", numTriplets)
+    
+        return totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets
+    end
 
     anynan(x) = any(y -> any(isnan, y), x)
 end

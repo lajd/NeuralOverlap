@@ -1,13 +1,13 @@
-# include("./src/Constants.jl")
-# include("./src/Utils.jl")
-# include("./src/Datasets/SyntheticDataset.jl")
-# include("./src/Model.jl")
+include("./src/Constants.jl")
+include("./src/Utils.jl")
+include("./src/Datasets/SyntheticDataset.jl")
+include("./src/Model.jl")
 
 
-include("./Constants.jl")
-include("./Utils.jl")
-include("./Datasets/SyntheticDataset.jl")
-include("./Model.jl")
+# include("./Constants.jl")
+# include("./Utils.jl")
+# include("./Datasets/SyntheticDataset.jl")
+# include("./Model.jl")
 
 using BenchmarkTools
 using Random
@@ -59,11 +59,7 @@ function Infer(s1, s2, embeddingModel)
     E1 = sequenceEmbeddings[1:end, 1]
     E2 = sequenceEmbeddings[1:end, 2]
 
-<<<<<<< HEAD
-=======
-#     D12 = vec(Utils.Norm(E1, E2)) |> DEVICE  # 1D dist vector of size bsize
->>>>>>> fix-merge-main-and-temp
-    D12 = Utils.Norm(E1, E2, dims=1) |> DEVICE  # 1D dist vector of size bsize
+    D12 = Utils.EmbeddingDistance(E1, E2, dims=1) |> DEVICE  # 1D dist vector of size bsize
 
     predictedEditDistance = Constants.MAX_STRING_LENGTH * D12
     return D12, predictedEditDistance
@@ -71,13 +67,16 @@ end
 
 
 embeddingModel = LoadModel(Utils.getBestModelPath(Constants.MODEL_SAVE_DIR, Constants.MODEL_SAVE_SUFFIX))
-evalDataset = Dataset.TrainingDataset(100, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+trainmode!(embeddingModel, false)
 
+evalDatasetHelper = Dataset.TrainingDataset(Constants.NUM_EVAL_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+evalDataset = evalDatasetHelper.getTripletBatch(100)
+evalDatasetHelper.shuffleTripletBatch!(evalDataset)
+evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, 1)
 
-numEvalBatches = 500
+Utils.evaluateModel(evalDatasetBatches, embeddingModel, Constants.MAX_STRING_LENGTH)
 
-
-totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets = evaluateModel(evalDataset, embeddingModel)
+# totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets = evaluateModel(evalDataset, embeddingModel)
 
 
 # # dataset = Dataset.TrainingDataset(Int(Constants.NUM_TRAINING_EXAMPLES*0.3), Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)

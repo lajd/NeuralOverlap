@@ -1,5 +1,5 @@
-include("./src/Utils.jl")
 include("./src/Constants.jl")
+include("./src/Utils.jl")
 include("./src/Datasets/SyntheticDataset.jl")
 include("./src/Model.jl")
 
@@ -26,6 +26,7 @@ using JLD
 using Debugger
 
 using Printf
+using TimerOutputs
 
 using .Utils
 using .Dataset
@@ -48,80 +49,17 @@ end
 mkpath(Constants.MODEL_SAVE_DIR)
 
 
-function evaluateModel(evalBatches, model)
-
-    totalMSE = 0
-    numTriplets = 0
-
-    averageAbsErrorArray = []
-    maxAbsErrorArray = []
-    totalAbsError = 0 
-
-
-    for fullBatch in evalBatches
-        # fullBatch = dataHelper.getTripletBatch(Constants.BSIZE)  
-        # trainDataHelper.shuffleTripletBatch!(fullBatch)
-        # fullBatch = trainDataHelper.extractBatchSubsets(fullBatch, 5)
-
-        reads = fullBatch[1:3]
-        batch = fullBatch[4:end]# |> DEVICE
-    
-        batch = batch |> DEVICE
-    
-        Xacr, Xpos, Xneg, y12, y13, y23 = batch
-    
-        Eacr = model(Xacr)
-        Epos = model(Xpos)
-        Eneg = model(Xneg)
-    
-        # MSE
-        posEmbedDist = Utils.Norm(Eacr, Epos, dims=1) |> DEVICE # 1D dist vector of size bsize
-        negEmbedDist =  Utils.Norm(Eacr, Eneg, dims=1) |> DEVICE
-        PosNegEmbedDist =  Utils.Norm(Epos, Eneg, dims=1) |> DEVICE
-
-        # @assert maximum(posEmbedDist) <= 1
-        @assert maximum(y12) <= 1
-
-        d12 = abs.(posEmbedDist - y12) * Constants.MAX_STRING_LENGTH
-        d13 = abs.(negEmbedDist - y13) * Constants.MAX_STRING_LENGTH
-        d23 = abs.(PosNegEmbedDist - y23) * Constants.MAX_STRING_LENGTH
-
-        totalAbsError += sum(d12) + sum(d13) + sum(d23)
-        
-        averageAbsError = mean([mean(d12), mean(d13), mean(d23)])
-        push!(averageAbsErrorArray, averageAbsError)
-        maxAbsError = maximum([maximum(d12), maximum(d13), maximum(d23)])
-        push!(maxAbsErrorArray, maxAbsError)
-
-        MSE = ((posEmbedDist - y12).^2 + (negEmbedDist - y13).^2 + (PosNegEmbedDist - y23).^2) 
-        MSE = mean(sqrt.(MSE))
-        totalMSE += MSE
-        numTriplets += size(Xacr)[3]
-    end
-
-    averageAbsError = mean(averageAbsErrorArray)
-    maxAbsError = maximum(maxAbsErrorArray)
-
-    averageMSEPerTriplet = totalMSE / numTriplets
-    @printf("Total MSE on entire training dataset is %s \n", totalMSE)
-    @printf("Average MSE per triplet is %s \n", round(averageMSEPerTriplet, digits=4))
-    @printf("Average abs error is %s \n", round(averageAbsError, digits=4))
-    @printf("Max abs error is %s \n", round(maxAbsError, digits=4))
-    @printf("Total abs error is %s \n", totalAbsError, )
-    @printf("Number of triplets compared %s \n", numTriplets)
-
-    return totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets
-end
-
-function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100)
+function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100, evalEvery=5)
     local trainingLoss
+    local EpochRankLoss = 0
+    local EpochEmbeddingLoss = 0
 
     bestAverageEpochLoss = 1e6
 
     ps = params(model)
 
     lReg::Float64 = 1.
-    rReg::Float64 = 1.
+    rReg::Float64 = 0.1
 
     regularizationSteps = Model.getLossRegularizationSteps(numEpochs)
     
@@ -147,7 +85,9 @@ function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100)
 
                 # lReg, rReg = Model.getRegularization(epoch, regularizationSteps, lReg, rReg)
                 gs = gradient(ps) do
-                    trainingLoss = Model.tripletLoss(tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg)
+                    EpochRankLoss, EpochEmbeddingLoss, trainingLoss = Model.tripletLoss(tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg)
+                    EpochRankLoss += EpochRankLoss
+                    EpochEmbeddingLoss += EpochEmbeddingLoss
                     return trainingLoss
                 end
                 
@@ -172,14 +112,20 @@ function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100)
             @printf("-----Training dataset-----\n")
             @printf("Epoch %s stats:\n", epoch)
             @printf("Average loss: %s, lReg: %s, rReg: %s\n", averageEpochLoss, lReg, rReg)
+            @printf("Average Rank loss: %s, Average Embedding loss %s\n", EpochRankLoss/Constants.NUM_BATCHES, EpochEmbeddingLoss/Constants.NUM_BATCHES)
             @printf("maxGS: %s, minGS: %s, meanGS: %s\n", maximum(maxgsArray), minimum(mingsArray), mean(meangsArray))
+            EpochRankLoss = 0
+            EpochEmbeddingLoss = 0
 
-            # Set to test mode
-            @printf("-----Evaluation dataset-----")
-            trainmode!(model, false)
-            evaluateModel(evalBatches, model)
-            # @printf("totalMSE: %s, \n averageMSEPerTriplet: %s, \n averageAbsError: %s, \nmaxAbsError: %s,\n numTriplets: %s\n",
-            # totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets)
+
+            if mod(epoch + 1, evalEvery) == 0 
+                # Set to test mode
+                @printf("-----Evaluation dataset-----")
+                trainmode!(model, false)
+                Utils.evaluateModel(evalBatches, model, Constants.MAX_STRING_LENGTH)
+                # @printf("totalMSE: %s, \n averageMSEPerTriplet: %s, \n averageAbsError: %s, \nmaxAbsError: %s,\n numTriplets: %s\n",
+                # totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets)
+            end
 
             # Save the model, removing old ones
             if epoch > 1 && averageEpochLoss < bestAverageEpochLoss
@@ -214,6 +160,7 @@ embeddingModel = Model.getModel(Constants.MAX_STRING_LENGTH, Constants.EMBEDDING
 # end
 
 trainDatasetHelper = Dataset.TrainingDataset(Constants.NUM_TRAINING_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000)
 
 # trainDatasetHelper = Dataset.TrainingDataset(Constants.NUM_TRAINING_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
 # trainDataset = evalDataset.getTripletBatch(Constants.NUM_TRAINING_EXAMPLES * Constants.BSIZE)
@@ -223,7 +170,7 @@ trainDatasetHelper = Dataset.TrainingDataset(Constants.NUM_TRAINING_EXAMPLES, Co
 @info("Created %s unique triplet pairs\n", Constants.BSIZE * Constants.NUM_BATCHES)
 
 evalDatasetHelper = Dataset.TrainingDataset(Constants.NUM_EVAL_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
-evalDataset = evalDatasetHelper.getTripletBatch(Constants.NUM_EVAL_EXAMPLES * Constants.EVAL_BSIZE)
+evalDataset = evalDatasetHelper.getTripletBatch(Constants.NUM_EVAL_EXAMPLES)
 evalDatasetHelper.shuffleTripletBatch!(evalDataset)
 evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, Constants.NUM_BATCHES)
 

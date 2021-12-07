@@ -64,12 +64,14 @@ module Model
     end
 
 
-    function _getInputConvLayer(;k=3, c=8, activation=relu, withBatchnorm=false)::Array
+    function _getInputConvLayer(;k=3, c=8, activation=relu, withBatchnorm=false, withInputBatchnorm=false)::Array
         # -> CONV/FC -> BatchNorm -> ReLu(or other activation) -> Dropout -> CONV/FC ->
         layers = []
 
         if withBatchnorm
-            push!(layers, BatchNorm(1, identity))
+            if withInputBatchnorm
+                push!(layers, BatchNorm(1, identity))
+            end
             push!(layers, Conv((k,), 1 => c, identity; bias = false, stride=1, pad=1))
             push!(layers, BatchNorm(c, activation))
             push!(layers, MaxPool((k,); pad=0))
@@ -259,14 +261,14 @@ module Model
         @assert any(isnan,Embpos) == false
         @assert any(isnan,Embneg) == false
 
+        
+        posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, dims=1) |> DEVICE  # 1D dist vector of size bsize
+        negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, dims=1) |> DEVICE
+        PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, dims=1) |> DEVICE
 
-        posEmbedDist = Utils.Norm(Embacr, Embpos, dims=1) |> DEVICE  # 1D dist vector of size bsize
-        negEmbedDist =  Utils.Norm(Embacr, Embneg, dims=1) |> DEVICE
-        PosNegEmbedDist =  Utils.Norm(Embpos, Embneg, dims=1) |> DEVICE
-
-        # posEmbedDist = Utils.Norm(Embacr, Embpos, dims=1)  # 1D dist vector of size bsize
-        # negEmbedDist =  Utils.Norm(Embacr, Embneg, dims=1)
-        # PosNegEmbedDist =  Utils.Norm(Embpos, Embneg, dims=1)
+        # posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, dims=1)  # 1D dist vector of size bsize
+        # negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, dims=1)
+        # PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, dims=1)
 
         threshold = y13 - y12  # Positive
 
@@ -285,6 +287,6 @@ module Model
         mseLoss = rReg * sqrt.(mseLoss)
         # println("rank loss %s, mse loss %s", mseLoss)
         # @printf("Rank loss %s, MSE loss %s", mean(rankLoss), mean(mseLoss))
-        return mean(rankLoss + mseLoss)
+        return mean(rankLoss), mean(mseLoss), mean(rankLoss + mseLoss)
     end
 end
