@@ -277,4 +277,12 @@ module Dataset
         fig = plot(scatter(1:maxSamples, dists), title="True distances")
         savefig(fig, "sequence_distances.png")
     end
+
+    function plotKNNDistances(distanceMat, idSeqDataMap)
+        refID, refData = rand(idSeqDataMap)
+        nns = refData["k100NN"]
+        distances = [distanceMat[refID, j] for j in nns]
+        fig = plot(scatter(1:length(distances), distances), title="Random KNN distances")
+        savefig(fig, "knn_distances.png")
+    end
 end

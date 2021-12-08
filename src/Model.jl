@@ -261,7 +261,6 @@ module Model
         @assert any(isnan,Embpos) == false
         @assert any(isnan,Embneg) == false
 
-        
         posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, dims=1, method=Constants.DISTANCE_METHOD) |> DEVICE  # 1D dist vector of size bsize
         negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, dims=1, method=Constants.DISTANCE_METHOD) |> DEVICE
         PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, dims=1, method=Constants.DISTANCE_METHOD) |> DEVICE

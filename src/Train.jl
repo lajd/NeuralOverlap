@@ -162,6 +162,7 @@ embeddingModel = Model.getModel(Constants.MAX_STRING_LENGTH, Constants.EMBEDDING
 
 trainDatasetHelper = Dataset.TrainingDataset(Constants.NUM_TRAINING_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
 Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000)
+Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap())
 
 # trainDatasetHelper = Dataset.TrainingDataset(Constants.NUM_TRAINING_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
 # trainDataset = evalDataset.getTripletBatch(Constants.NUM_TRAINING_EXAMPLES * Constants.BSIZE)
