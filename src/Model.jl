@@ -262,13 +262,9 @@ module Model
         @assert any(isnan,Embneg) == false
 
         
-        posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, dims=1) |> DEVICE  # 1D dist vector of size bsize
-        negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, dims=1) |> DEVICE
-        PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, dims=1) |> DEVICE
-
-        # posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, dims=1)  # 1D dist vector of size bsize
-        # negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, dims=1)
-        # PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, dims=1)
+        posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, dims=1, method=Constants.DISTANCE_METHOD) |> DEVICE  # 1D dist vector of size bsize
+        negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, dims=1, method=Constants.DISTANCE_METHOD) |> DEVICE
+        PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, dims=1, method=Constants.DISTANCE_METHOD) |> DEVICE
 
         threshold = y13 - y12  # Positive
 

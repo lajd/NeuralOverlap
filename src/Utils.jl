@@ -7,7 +7,7 @@ module Utils
     using LinearAlgebra
     using Printf
     using Flux
-
+    using Plots
 
     try
         using CUDA
@@ -39,7 +39,7 @@ module Utils
                 d = hamming(refSeq, compSeq)
                 distanceMatrix[seqId, j] = d
             end
-            seqId = seqId + 1
+            seqId += 1
 
         end
         return sequenceIDMap, distanceMatrix
@@ -141,7 +141,7 @@ module Utils
         end
     end
 
-    function evaluateModel(evalBatches, model, maxStringLength)
+    function evaluateModel(evalBatches, model, maxStringLength; figSavePath="test.png", distanceMethod="l2")
 
         totalMSE = 0
         numTriplets = 0
@@ -149,6 +149,8 @@ module Utils
         averageAbsErrorArray = []
         maxAbsErrorArray = []
         totalAbsError = 0 
+        trueDistanceArray = []
+        predictedDistanceArray = []
 
         model = model |> DEVICE
     
@@ -170,9 +172,9 @@ module Utils
             Eneg = model(Xneg)
         
             # MSE
-            posEmbedDist = Utils.EmbeddingDistance(Eacr, Epos, dims=1) |> DEVICE # 1D dist vector of size bsize
-            negEmbedDist =  Utils.EmbeddingDistance(Eacr, Eneg, dims=1) |> DEVICE
-            PosNegEmbedDist =  Utils.EmbeddingDistance(Epos, Eneg, dims=1) |> DEVICE
+            posEmbedDist = Utils.EmbeddingDistance(Eacr, Epos, dims=1, method=distanceMethod) |> DEVICE # 1D dist vector of size bsize
+            negEmbedDist =  Utils.EmbeddingDistance(Eacr, Eneg, dims=1, method=distanceMethod) |> DEVICE
+            PosNegEmbedDist =  Utils.EmbeddingDistance(Epos, Eneg, dims=1, method=distanceMethod) |> DEVICE
     
             # @assert maximum(posEmbedDist) <= 1
             @assert maximum(y12) <= 1
@@ -180,7 +182,16 @@ module Utils
             d12 = abs.(posEmbedDist - y12) * maxStringLength
             d13 = abs.(negEmbedDist - y13) * maxStringLength
             d23 = abs.(PosNegEmbedDist - y23) * maxStringLength
-    
+
+            push!(trueDistanceArray, y12...)
+            push!(trueDistanceArray, y13...)
+            push!(trueDistanceArray, y23...)
+
+
+            push!(predictedDistanceArray, posEmbedDist...)
+            push!(predictedDistanceArray, negEmbedDist...)
+            push!(predictedDistanceArray, PosNegEmbedDist...)
+
             totalAbsError += sum(d12) + sum(d13) + sum(d23)
             
             averageAbsError = mean([mean(d12), mean(d13), mean(d23)])
@@ -205,6 +216,12 @@ module Utils
         @printf("Total abs error is %s \n", totalAbsError, )
         @printf("Number of triplets compared %s \n", numTriplets)
     
+
+        perm = sortperm(trueDistanceArray)
+
+        fig = plot(scatter(trueDistanceArray[perm], predictedDistanceArray[perm],  label = ["True ED", "Predicted ED"]), title="True vs. Predicted edit distance")
+        savefig(fig, figSavePath)
+
         return totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets
     end
 

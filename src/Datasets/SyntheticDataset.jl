@@ -16,15 +16,17 @@ module Dataset
 
     using ..Utils
 
-
     function generateSequences(numSequences::Int64, minSequenceLength::Int64,
          maxSequenceLength::Int64, alphabet::Vector{Char},
-         ratioOfRandom=0.2, similarityMin=0.6, similarityMaxProb=0.95,
-         )::Array{String}
-         n = rand(minSequenceLength:maxSequenceLength)
+         ratioOfRandom=0.1, similarityMin=0.6, similarityMaxProb=0.95)::Array{String}
+
+        # It's very likely for a sequence to be similar to another sequence, but 
+        # most sequences are dissimilar to each other 
+        
+        n = rand(minSequenceLength:maxSequenceLength)
         sequenceSet = Set()
         push!(sequenceSet, randstring(alphabet, n))
-        for _ in 1:numSequences - 1
+        while length(sequenceSet) < numSequences
             n = rand(minSequenceLength:maxSequenceLength)
             if rand() < ratioOfRandom
                 s = randstring(alphabet, n)
@@ -268,10 +270,11 @@ module Dataset
 
     function plotSequenceDistances(distanceMat; maxSamples = 500)
         n = size(distanceMat)[1]
+        maxSamples = min(maxSamples, n)
         randSamplesX = a = sample(1:n, maxSamples, replace = false)
         randSamplesY = a = sample(1:n, maxSamples, replace = false)
         dists = [distanceMat[i, j] for (i, j) in  zip(randSamplesX, randSamplesY)]        
-        plot(1:maxSamples, dists)
+        fig = plot(scatter(1:maxSamples, dists), title="True distances")
+        savefig(fig, "sequence_distances.png")
     end
-
 end

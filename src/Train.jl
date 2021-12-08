@@ -72,6 +72,7 @@ function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100, 
         sumEpochLoss = 0
 
         batchNum = 0
+
         @time begin
             @info("Starting epoch %s...\n", epoch)
             # Set to train mode
@@ -108,7 +109,7 @@ function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100, 
                 batchNum += 1
             end
 
-            averageEpochLoss = sumEpochLoss / batchNum
+            averageEpochLoss = sumEpochLoss / Constants.NUM_BATCHES
             @printf("-----Training dataset-----\n")
             @printf("Epoch %s stats:\n", epoch)
             @printf("Average loss: %s, lReg: %s, rReg: %s\n", averageEpochLoss, lReg, rReg)
@@ -172,6 +173,6 @@ Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples
 evalDatasetHelper = Dataset.TrainingDataset(Constants.NUM_EVAL_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
 evalDataset = evalDatasetHelper.getTripletBatch(Constants.NUM_EVAL_EXAMPLES)
 evalDatasetHelper.shuffleTripletBatch!(evalDataset)
-evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, Constants.NUM_BATCHES)
+evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, 1)
 
 trainingLoop!(embeddingModel, trainDatasetHelper, evalDatasetBatches, opt, numEpochs=Constants.NUM_EPOCHS)
