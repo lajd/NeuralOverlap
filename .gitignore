@@ -14,5 +14,7 @@ npm-debug.log
 dump.rdb
 
 
+*.png
+
 # Models
 data
