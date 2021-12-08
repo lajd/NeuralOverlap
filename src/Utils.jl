@@ -8,6 +8,7 @@ module Utils
     using Printf
     using Flux
     using Plots
+    using DataStructures
 
     try
         using CUDA
@@ -131,7 +132,7 @@ module Utils
         return 1 .- diag((transpose(a)* b)) ./ denom
     end
 
-    function EmbeddingDistance(x1, x2; dims=1, method="cosine")
+    function EmbeddingDistance(x1, x2, method; dims=1)
         if method == "l2"
             return vec(Utils.l2Norm(x1 - x2, dims=dims)) |> DEVICE
         elseif method == "cosine"
@@ -141,7 +142,119 @@ module Utils
         end
     end
 
-    function evaluateModel(evalBatches, model, maxStringLength; figSavePath="test.png", distanceMethod="l2")
+    function getNNFromEmbeddings(datasetHelper, embeddingModel, maxStringLength; bsize=128, method="l2", numNN=100, estErrorN=1000)
+        idSeqDataMap = datasetHelper.getIdSeqDataMap()
+        distanceMatrix = datasetHelper.getDistanceMatrix()
+        numSeqs = length(idSeqDataMap)
+
+        Xarray = []
+
+        for k in 1:length(idSeqDataMap)
+            v = idSeqDataMap[k]
+            push!(Xarray, v["oneHotSeq"])
+        end
+
+        X = datasetHelper.formatOneHotSequenceArray(Xarray)
+        
+        Earray = []
+
+        i = 1
+        j = bsize
+        n = size(X)[3]
+        while j < n
+            push!(Earray, embeddingModel(X[1:end, 1:end, i:j]))
+            i += bsize
+            j += bsize
+        end
+        push!(Earray, embeddingModel(X[1:end, 1:end, i:n]))
+
+        E = hcat(Earray...)
+
+        predictedDistanceMatrix = convert.(Float32, zeros(n, n))
+
+        for refIdx in 1:n
+            for compIdx in 1:n
+                e1 = E[1:end, refIdx]
+                e2 = E[1:end, compIdx]
+                d = Utils.EmbeddingDistance(e1, e2, method, dims=1)[1]
+                predictedDistanceMatrix[refIdx, compIdx] = d
+            end
+        end
+
+        # Get k-nns and recall
+        recallDict = Dict(
+            "top1Recall" => DefaultDict(0.),
+            "top10Recall" => DefaultDict(0.),
+            "top50Recall" => DefaultDict(0.),
+            "top100Recall" => DefaultDict(0.),
+        )
+
+        function recallTopN(predKNN, actualKNN;T=100,K=100)
+            K = min(K, length(actualKNN))
+            predTNN = predKNN[1:T]
+            actualKNN = actualKNN[1:K]
+            intersection = sum([1 for i in predTNN if i in actualKNN])
+            recall = intersection / min(T, K)
+            return recall
+        end
+
+        for id in 1:n
+            # Don't include identical examples
+            predicted_knns = sortperm(predictedDistanceMatrix[id, 2:end])[1:numNN]
+            actual_knns = idSeqDataMap[id]["k100NN"][2:end]
+            for k in range(1, 101, step=10)
+                recallDict["top1Recall"][k] += recallTopN(predicted_knns, actual_knns, T=1, K=k)
+                recallDict["top10Recall"][k] += recallTopN(predicted_knns, actual_knns, T=10, K=k)
+                recallDict["top50Recall"][k] += recallTopN(predicted_knns, actual_knns, T=50, K=k)
+                recallDict["top100Recall"][k] += recallTopN(predicted_knns, actual_knns, T=100, K=k)
+            end
+        end
+
+        # Get average estimation error
+        predDistanceArray = []
+        trueDistanceArray = []
+        # distanceEstimationErrorArray = []
+        maxAbsError = -1
+        meanAbsErrorArray = []
+        for _ in 1:estErrorN
+            id1 = rand(1:numSeqs)
+            id2 = rand(1:numSeqs)
+            trueDist = distanceMatrix[id1, id2] * maxStringLength
+            predDist = predictedDistanceMatrix[id1, id2] * maxStringLength
+            push!(predDistanceArray, predDist)
+            push!(trueDistanceArray, trueDist)
+            # push!(distanceEstimationErrorArray, abs(predDist - trueDist)/trueDist * maxStringLength)
+
+            absError = abs(predDist - trueDist)
+            if absError > maxAbsError
+                maxAbsError = absError
+            end
+
+            push!(meanAbsErrorArray, absError)
+
+        end
+
+        for (topNKey, recallAtK) in recallDict
+            for (kValue, recallScoreSum) in recallAtK
+                recallDict[topNKey][kValue] = recallScoreSum/n
+                x = collect(keys(recallDict[topNKey]))
+                perm = sortperm(x)
+                x = x[perm]
+                y = collect(values(recallDict[topNKey]))[perm]
+                fig = plot(x, y)
+                savefig(fig, string("testRecall", "_", topNKey, ".png"))
+            end
+        end
+
+        # meanRecall = mean(recallArray)
+        # meanEstimationError = mean(distanceEstimationErrorArray)
+        menaAbsError = mean(meanAbsErrorArray)
+
+        return menaAbsError
+
+    end
+
+    function evaluateModel(evalDatasethelper, model, maxStringLength; figSavePath="test.png", distanceMethod="l2")
 
         totalMSE = 0
         numTriplets = 0
@@ -160,8 +273,8 @@ module Utils
             # trainDataHelper.shuffleTripletBatch!(fullBatch)
             # fullBatch = trainDataHelper.extractBatchSubsets(fullBatch, 5)
     
-            reads = fullBatch[1:3]
-            batch = fullBatch[4:end]
+            reads = fullBatch[1:6]
+            batch = fullBatch[7:end]
         
             batch = batch |> DEVICE
         
@@ -172,9 +285,9 @@ module Utils
             Eneg = model(Xneg)
         
             # MSE
-            posEmbedDist = Utils.EmbeddingDistance(Eacr, Epos, dims=1, method=distanceMethod) |> DEVICE # 1D dist vector of size bsize
-            negEmbedDist =  Utils.EmbeddingDistance(Eacr, Eneg, dims=1, method=distanceMethod) |> DEVICE
-            PosNegEmbedDist =  Utils.EmbeddingDistance(Epos, Eneg, dims=1, method=distanceMethod) |> DEVICE
+            posEmbedDist = Utils.EmbeddingDistance(Eacr, Epos, distanceMethod, dims=1) |> DEVICE # 1D dist vector of size bsize
+            negEmbedDist =  Utils.EmbeddingDistance(Eacr, Eneg, distanceMethod, dims=1) |> DEVICE
+            PosNegEmbedDist =  Utils.EmbeddingDistance(Epos, Eneg, distanceMethod, dims=1) |> DEVICE
     
             # @assert maximum(posEmbedDist) <= 1
             @assert maximum(y12) <= 1
@@ -224,6 +337,7 @@ module Utils
 
         return totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets
     end
+
 
     anynan(x) = any(y -> any(isnan, y), x)
 end

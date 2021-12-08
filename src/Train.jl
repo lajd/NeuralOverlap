@@ -81,8 +81,8 @@ function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100, 
                 batchDict = trainDataHelper.getTripletBatch(Constants.BSIZE)
                 batchTuple = trainDataHelper.batchToTuple(batchDict)
 
-                reads = batchTuple[1:3]
-                tensorBatch = batchTuple[4:end] |> DEVICE
+                ids_and_reads = batchTuple[1:6]
+                tensorBatch = batchTuple[7:end] |> DEVICE
 
                 # lReg, rReg = Model.getRegularization(epoch, regularizationSteps, lReg, rReg)
                 gs = gradient(ps) do

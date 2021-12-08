@@ -78,7 +78,7 @@ module Dataset
                 idSeqDataMap[id] = Dict(
                     "seq" => seq,
                     "oneHotSeq" => oneHotEncodedSequences[id],
-                    "k100NN" => sortperm(distanceMatrix[id, 1:end])[1:numNN]
+                    "k100NN" => sortperm(distanceMatrix[id, 1:end])[2:numNN + 1]  # Don't compare example to itself
                 )
             end
     
@@ -87,6 +87,10 @@ module Dataset
             getIdSeqDataMap() = idSeqDataMap
             getDistance(id1, id2) = distanceMatrix[id1, id2]
             numSeqs() = numSequences
+        end
+
+        function getNNs(id)
+            return idSeqDataMap[id]["k100NN"]
         end
 
         @info("Dataset contains: %s unique sequences", numSequences)
@@ -141,6 +145,10 @@ module Dataset
                 "Sacr" => idSeqDataMap[idAcr]["seq"],
                 "Spos" => idSeqDataMap[idPos]["seq"],
                 "Sneg" => idSeqDataMap[idNeg]["seq"],
+                # Ids
+                "Idacr" => idAcr,
+                "Idpos" => idPos,
+                "Idneg" => idNeg,
                 # OneHots
                 "Xacr" => idSeqDataMap[idAcr]["oneHotSeq"],
                 "Xpos" => idSeqDataMap[idPos]["oneHotSeq"],
@@ -152,6 +160,14 @@ module Dataset
             )
         end
 
+        function formatOneHotSequenceArray(Xarray)
+            n = length(Xarray)
+            Xarray = convert.(Float32, vcat(Xarray...))
+            Xarray = permutedims(Xarray, (3, 2, 1))
+            Xarray = reshape(Xarray, :, 1, n)
+            return Xarray
+        end
+
         function getTripletBatch(n::Int64)
 
             batch = Dict(
@@ -159,6 +175,10 @@ module Dataset
                 "Sacr" => Vector{String}(),
                 "Spos" => Vector{String}(),
                 "Sneg" => Vector{String}(),
+                # Ids
+                "Idacr" => Vector{Int64}(),
+                "Idpos" => Vector{Int64}(),
+                "Idneg" => Vector{Int64}(),
                 # OneHots
                 "Xacr" => [],
                 "Xpos" => [],
@@ -179,9 +199,8 @@ module Dataset
 
             # Reshape as (-1, 1, N)
             for s in ["Xacr", "Xpos", "Xneg"]
-                batch[s] = convert.(Float32, vcat(batch[s]...))
-                batch[s] = permutedims(batch[s], (3, 2, 1))
-                batch[s] = reshape(batch[s], :, 1, n)
+
+                batch[s] = formatOneHotSequenceArray(batch[s])
             end
 
             return batch
@@ -206,7 +225,7 @@ module Dataset
         end
 
         function batchToTuple(batch)
-            order = ["Sacr", "Spos", "Sneg", "Xacr", "Xpos", "Xneg", "Dpos", "Dneg", "DPosNeg"]
+            order = ["Idacr", "Idpos", "Idneg", "Sacr", "Spos", "Sneg", "Xacr", "Xpos", "Xneg", "Dpos", "Dneg", "DPosNeg"]
             output = []
             for k in order                
                 v = batch[k]
@@ -216,7 +235,7 @@ module Dataset
         end
 
         function extractBatchTupleSubset(batch, i, j)::Tuple
-            order = ["Sacr", "Spos", "Sneg", "Xacr", "Xpos", "Xneg", "Dpos", "Dneg", "DPosNeg"]
+            order = ["Idacr", "Idpos", "Idneg", "Sacr", "Spos", "Sneg", "Xacr", "Xpos", "Xneg", "Dpos", "Dneg", "DPosNeg"]
             output = []
             for k in order                
                 v = batch[k]
@@ -247,7 +266,9 @@ module Dataset
             return outputChunks
         end
 
-        ()->(numSeqs;getDistanceMatrix;getSeqIdMap;getIdSeqDataMap;getDistance;getTripletDict;getTripletBatch;numCollisions;shuffleTripletBatch!;extractBatches;batchToTuple)
+        ()->(numSeqs;getDistanceMatrix;getSeqIdMap;getIdSeqDataMap;getDistance;getTripletDict;
+        getTripletBatch;numCollisions;shuffleTripletBatch!;extractBatches;batchToTuple;
+        formatOneHotSequenceArray;getNNs)
     end
     
 
@@ -285,4 +306,5 @@ module Dataset
         fig = plot(scatter(1:length(distances), distances), title="Random KNN distances")
         savefig(fig, "knn_distances.png")
     end
+
 end

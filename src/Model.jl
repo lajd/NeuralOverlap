@@ -213,7 +213,7 @@ module Model
          y23::ArrayType; embeddingModel, lReg::Float64=1.0, rReg::Float64=0.1)
         
 
-        # Xacr, Xpos, Xneg, y12, y13, y23 = batch
+        # Xacr, Xpos, Xneg, y12, y13, y23 = tensorBatch
         
         # FIXME: The below are done on CPU to avoid scalar indexing issues
 
@@ -261,9 +261,9 @@ module Model
         @assert any(isnan,Embpos) == false
         @assert any(isnan,Embneg) == false
 
-        posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, dims=1, method=Constants.DISTANCE_METHOD) |> DEVICE  # 1D dist vector of size bsize
-        negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, dims=1, method=Constants.DISTANCE_METHOD) |> DEVICE
-        PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, dims=1, method=Constants.DISTANCE_METHOD) |> DEVICE
+        posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, Constants.DISTANCE_METHOD, dims=1) |> DEVICE  # 1D dist vector of size bsize
+        negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, Constants.DISTANCE_METHOD, dims=1) |> DEVICE
+        PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, Constants.DISTANCE_METHOD, dims=1) |> DEVICE
 
         threshold = y13 - y12  # Positive
 

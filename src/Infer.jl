@@ -60,7 +60,7 @@ function Infer(s1, s2, embeddingModel)
     E1 = sequenceEmbeddings[1:end, 1]
     E2 = sequenceEmbeddings[1:end, 2]
 
-    D12 = Utils.EmbeddingDistance(E1, E2, dims=1, method=Constants.DISTANCE_METHOD) |> DEVICE  # 1D dist vector of size bsize
+    D12 = Utils.EmbeddingDistance(E1, E2, Constants.DISTANCE_METHOD, dims=1) |> DEVICE  # 1D dist vector of size bsize
 
     predictedEditDistance = Constants.MAX_STRING_LENGTH * D12
     return D12, predictedEditDistance
@@ -76,6 +76,9 @@ evalDatasetHelper.shuffleTripletBatch!(evalDataset)
 evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, 1)
 
 Utils.evaluateModel(evalDatasetBatches, embeddingModel, Constants.MAX_STRING_LENGTH, method=Constants.DISTANCE_METHOD)
+
+
+Utils.getNNFromEmbeddings(evalDatasetHelper, embeddingModel, Constants.MAX_STRING_LENGTH; bsize=128, method="l2", numNN=100, estErrorN=1000)
 
 # totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets = evaluateModel(evalDataset, embeddingModel)
 
