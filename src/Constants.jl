@@ -27,6 +27,9 @@ module Constants
     CONV_ACTIVATION = identity
     LR = 0.1
 
+    # Evaluation
+    EVAL_EVERY = 1
+
     # Loss scaling
     L0rank = 0.1
     L0emb = 1.

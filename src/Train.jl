@@ -36,6 +36,7 @@ using .Model
 
 try
     using CUDA
+    using CUDA: @allowscalar
     # TODO: Don't require allow scalar
     CUDA.allowscalar(Constants.ALLOW_SCALAR)
     global DEVICE = Flux.gpu
@@ -121,14 +122,17 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
             epochTrainingLoss = epochEmbeddingLoss = epochRankLoss = 0
             timeSpentFetchingData = timeSpentForward = timeSpentBackward = 0
 
-            if mod(epoch, evalEvery) == 1
+            if mod(epoch, evalEvery) == 0
                 evaluateTime = @elapsed begin
                     @printf("-----Evaluation dataset-----\n")
                     trainmode!(model, false)
-                    meanAbsEvalError, maxAbsEvalError, minAbsEvalError, totalAbsEvalError = Utils.evaluateModel(
-                        evalDataHelper, model, Constants.MAX_STRING_LENGTH,
-                        plotsSavePath=Constants.PLOTS_SAVE_DIR, identifier=epoch
-                    )
+
+                    @allowscalar begin
+                        meanAbsEvalError, maxAbsEvalError, minAbsEvalError, totalAbsEvalError = Utils.evaluateModel(
+                            evalDataHelper, model, Constants.MAX_STRING_LENGTH,
+                            plotsSavePath=Constants.PLOTS_SAVE_DIR, identifier=epoch
+                        )
+                    end
                 end
                 @printf("Evaluation time %s\n", evaluateTime)
 
@@ -182,4 +186,4 @@ Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHel
 # Evaluation dataset
 evalDatasetHelper = Dataset.TrainingDataset(Constants.NUM_EVAL_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
 
-trainingLoop!(embeddingModel, trainDatasetHelper, evalDatasetHelper, opt, numEpochs=Constants.NUM_EPOCHS)
+trainingLoop!(embeddingModel, trainDatasetHelper, evalDatasetHelper, opt, numEpochs=Constants.NUM_EPOCHS, evalEvery=Constants.EVAL_EVERY)
