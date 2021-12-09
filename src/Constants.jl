@@ -1,14 +1,16 @@
 module Constants
+    using Flux
+
     # Datasets
     ALPHABET = ['A';'T';'C';'G']
 
     ALPHABET_SYMBOLS = [Symbol(i) for i in ALPHABET]
     ALPHABET_DIM = length(ALPHABET_SYMBOLS)
 
-    MIN_STRING_LENGTH = 16
-    MAX_STRING_LENGTH = 16
+    MIN_STRING_LENGTH = 128
+    MAX_STRING_LENGTH = 128
 
-    NUM_INTERMEDIATE_CONV_LAYERS = 1
+    NUM_INTERMEDIATE_CONV_LAYERS = 2
     NUM_FC_LAYERS = 1
 
     BSIZE = 64
@@ -18,11 +20,19 @@ module Constants
     WITH_BATCHNORM = false
     WITH_DROPOUT = false
 
+    FC_ACTIVATION = relu
+    CONV_ACTIVATION = identity
+    LR = 1
+
     # NUM_TRAINING_EXAMPLES = 1000
     # NUM_EVAL_EXAMPLES = 500
     NUM_TRAINING_EXAMPLES = 2000
     NUM_EVAL_EXAMPLES = 500
     NUM_BATCHES = 512
+
+    # Pooling
+    POOLING_METHOD="mean"
+    POOL_KERNEL=2
 
     # Model
     OUT_CHANNELS = 8

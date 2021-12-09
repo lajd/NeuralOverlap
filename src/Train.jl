@@ -49,7 +49,7 @@ end
 mkpath(Constants.MODEL_SAVE_DIR)
 
 
-function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100, evalEvery=5)
+function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=100, evalEvery=5)
     local trainingLoss
     local EpochRankLoss = 0
     local EpochEmbeddingLoss = 0
@@ -119,11 +119,11 @@ function trainingLoop!(model, trainDataHelper, evalBatches, opt; numEpochs=100, 
             EpochEmbeddingLoss = 0
 
 
-            if mod(epoch + 1, evalEvery) == 0 
+            if mod(epoch, evalEvery) == 1
                 # Set to test mode
-                @printf("-----Evaluation dataset-----")
+                @printf("-----Evaluation dataset-----\n")
                 trainmode!(model, false)
-                Utils.evaluateModel(evalBatches, model, Constants.MAX_STRING_LENGTH)
+                Utils.evaluateModel(evalDataHelper, model, Constants.MAX_STRING_LENGTH)
                 # @printf("totalMSE: %s, \n averageMSEPerTriplet: %s, \n averageAbsError: %s, \nmaxAbsError: %s,\n numTriplets: %s\n",
                 # totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets)
             end
@@ -143,10 +143,12 @@ end
     
 
 # opt = Flux.Optimise.Optimiser(ClipValue(1e-3), ADAM(0.001, (0.9, 0.999)))
-opt = ADAM(0.001, (0.9, 0.999))
+opt = ADAM(Constants.LR, (0.9, 0.999))
 embeddingModel = Model.getModel(Constants.MAX_STRING_LENGTH, Constants.EMBEDDING_DIM, 
- numIntermediateConvLayers=Constants.NUM_INTERMEDIATE_CONV_LAYERS, numFCLayers=Constants.NUM_FC_LAYERS,
- withBatchnorm=Constants.WITH_BATCHNORM, withDropout=Constants.WITH_DROPOUT,c=Constants.OUT_CHANNELS,k=Constants.KERNEL_SIZE
+ numIntermediateConvLayers=Constants.NUM_INTERMEDIATE_CONV_LAYERS,
+  numFCLayers=Constants.NUM_FC_LAYERS, FCAct=Constants.FC_ACTIVATION, ConvAct=Constants.CONV_ACTIVATION,
+ withBatchnorm=Constants.WITH_BATCHNORM, withDropout=Constants.WITH_DROPOUT,
+ c=Constants.OUT_CHANNELS,k=Constants.KERNEL_SIZE, poolingMethod=Constants.POOLING_METHOD
  ) |> DEVICE
 
 # if isfile(Constants.DATASET_SAVE_PATH)
@@ -172,8 +174,8 @@ Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHel
 @info("Created %s unique triplet pairs\n", Constants.BSIZE * Constants.NUM_BATCHES)
 
 evalDatasetHelper = Dataset.TrainingDataset(Constants.NUM_EVAL_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
-evalDataset = evalDatasetHelper.getTripletBatch(Constants.NUM_EVAL_EXAMPLES)
-evalDatasetHelper.shuffleTripletBatch!(evalDataset)
-evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, 1)
+# evalDataset = evalDatasetHelper.getTripletBatch(Constants.NUM_EVAL_EXAMPLES)
+# evalDatasetHelper.shuffleTripletBatch!(evalDataset)
+# evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, 1)
 
-trainingLoop!(embeddingModel, trainDatasetHelper, evalDatasetBatches, opt, numEpochs=Constants.NUM_EPOCHS)
+trainingLoop!(embeddingModel, trainDatasetHelper, evalDatasetHelper, opt, numEpochs=Constants.NUM_EPOCHS)

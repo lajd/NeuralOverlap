@@ -142,7 +142,7 @@ module Utils
         end
     end
 
-    function getNNFromEmbeddings(datasetHelper, embeddingModel, maxStringLength; bsize=128, method="l2", numNN=100, estErrorN=1000)
+    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=128, method="l2", numNN=100, estErrorN=1000)
         idSeqDataMap = datasetHelper.getIdSeqDataMap()
         distanceMatrix = datasetHelper.getDistanceMatrix()
         numSeqs = length(idSeqDataMap)
@@ -214,8 +214,7 @@ module Utils
         predDistanceArray = []
         trueDistanceArray = []
         # distanceEstimationErrorArray = []
-        maxAbsError = -1
-        meanAbsErrorArray = []
+        absErrorArray = []
         for _ in 1:estErrorN
             id1 = rand(1:numSeqs)
             id2 = rand(1:numSeqs)
@@ -226,11 +225,7 @@ module Utils
             # push!(distanceEstimationErrorArray, abs(predDist - trueDist)/trueDist * maxStringLength)
 
             absError = abs(predDist - trueDist)
-            if absError > maxAbsError
-                maxAbsError = absError
-            end
-
-            push!(meanAbsErrorArray, absError)
+            push!(absErrorArray, absError)
 
         end
 
@@ -248,95 +243,104 @@ module Utils
 
         # meanRecall = mean(recallArray)
         # meanEstimationError = mean(distanceEstimationErrorArray)
-        menaAbsError = mean(meanAbsErrorArray)
+        meanAbsError = mean(absErrorArray)
+        maxAbsError = maximum(absErrorArray)
+        minAbsError = minimum(absErrorArray)
+        totalAbsError = sum(absErrorArray)
 
-        return menaAbsError
+        @printf("Mean Absolute Error is %s \n", round(meanAbsError, digits=4))
+        @printf("Max Absolute Error is %s \n", round(maxAbsError, digits=4))
+        @printf("Min abs error is %s \n", round(minAbsError, digits=4))
+        @printf("Total abs error is %s \n", round(totalAbsError, digits=4))
+        @printf("Number of triplets compared %s \n", estErrorN)
+
+        return meanAbsError, maxAbsError, minAbsError, totalAbsError
 
     end
 
-    function evaluateModel(evalDatasethelper, model, maxStringLength; figSavePath="test.png", distanceMethod="l2")
+    # function evaluateModel(evalDatasethelper, model, maxStringLength; figSavePath="test.png", distanceMethod="l2")
 
-        totalMSE = 0
-        numTriplets = 0
+    #     totalMSE = 0
+    #     numTriplets = 0
     
-        averageAbsErrorArray = []
-        maxAbsErrorArray = []
-        totalAbsError = 0 
-        trueDistanceArray = []
-        predictedDistanceArray = []
+    #     averageAbsErrorArray = []
+    #     maxAbsErrorArray = []
+    #     totalAbsError = 0 
+    #     trueDistanceArray = []
+    #     predictedDistanceArray = []
 
-        model = model |> DEVICE
+    #     model = model |> DEVICE
     
     
-        for fullBatch in evalBatches
-            # fullBatch = dataHelper.getTripletBatch(Constants.BSIZE)  
-            # trainDataHelper.shuffleTripletBatch!(fullBatch)
-            # fullBatch = trainDataHelper.extractBatchSubsets(fullBatch, 5)
+    #     for fullBatch in evalBatches
+    #         # fullBatch = dataHelper.getTripletBatch(Constants.BSIZE)  
+    #         # trainDataHelper.shuffleTripletBatch!(fullBatch)
+    #         # fullBatch = trainDataHelper.extractBatchSubsets(fullBatch, 5)
     
-            reads = fullBatch[1:6]
-            batch = fullBatch[7:end]
+    #         reads = fullBatch[1:6]
+    #         batch = fullBatch[7:end]
         
-            batch = batch |> DEVICE
+    #         batch = batch |> DEVICE
         
-            Xacr, Xpos, Xneg, y12, y13, y23 = batch
+    #         Xacr, Xpos, Xneg, y12, y13, y23 = batch
         
-            Eacr = model(Xacr)
-            Epos = model(Xpos)
-            Eneg = model(Xneg)
+    #         Eacr = model(Xacr)
+    #         Epos = model(Xpos)
+    #         Eneg = model(Xneg)
         
-            # MSE
-            posEmbedDist = Utils.EmbeddingDistance(Eacr, Epos, distanceMethod, dims=1) |> DEVICE # 1D dist vector of size bsize
-            negEmbedDist =  Utils.EmbeddingDistance(Eacr, Eneg, distanceMethod, dims=1) |> DEVICE
-            PosNegEmbedDist =  Utils.EmbeddingDistance(Epos, Eneg, distanceMethod, dims=1) |> DEVICE
+    #         # MSE
+    #         posEmbedDist = Utils.EmbeddingDistance(Eacr, Epos, distanceMethod, dims=1) |> DEVICE # 1D dist vector of size bsize
+    #         negEmbedDist =  Utils.EmbeddingDistance(Eacr, Eneg, distanceMethod, dims=1) |> DEVICE
+    #         PosNegEmbedDist =  Utils.EmbeddingDistance(Epos, Eneg, distanceMethod, dims=1) |> DEVICE
     
-            # @assert maximum(posEmbedDist) <= 1
-            @assert maximum(y12) <= 1
+    #         # @assert maximum(posEmbedDist) <= 1
+    #         @assert maximum(y12) <= 1
     
-            d12 = abs.(posEmbedDist - y12) * maxStringLength
-            d13 = abs.(negEmbedDist - y13) * maxStringLength
-            d23 = abs.(PosNegEmbedDist - y23) * maxStringLength
+    #         d12 = abs.(posEmbedDist - y12) * maxStringLength
+    #         d13 = abs.(negEmbedDist - y13) * maxStringLength
+    #         d23 = abs.(PosNegEmbedDist - y23) * maxStringLength
 
-            push!(trueDistanceArray, y12...)
-            push!(trueDistanceArray, y13...)
-            push!(trueDistanceArray, y23...)
+    #         push!(trueDistanceArray, y12...)
+    #         push!(trueDistanceArray, y13...)
+    #         push!(trueDistanceArray, y23...)
 
 
-            push!(predictedDistanceArray, posEmbedDist...)
-            push!(predictedDistanceArray, negEmbedDist...)
-            push!(predictedDistanceArray, PosNegEmbedDist...)
+    #         push!(predictedDistanceArray, posEmbedDist...)
+    #         push!(predictedDistanceArray, negEmbedDist...)
+    #         push!(predictedDistanceArray, PosNegEmbedDist...)
 
-            totalAbsError += sum(d12) + sum(d13) + sum(d23)
+    #         totalAbsError += sum(d12) + sum(d13) + sum(d23)
             
-            averageAbsError = mean([mean(d12), mean(d13), mean(d23)])
-            push!(averageAbsErrorArray, averageAbsError)
-            maxAbsError = maximum([maximum(d12), maximum(d13), maximum(d23)])
-            push!(maxAbsErrorArray, maxAbsError)
+    #         averageAbsError = mean([mean(d12), mean(d13), mean(d23)])
+    #         push!(averageAbsErrorArray, averageAbsError)
+    #         maxAbsError = maximum([maximum(d12), maximum(d13), maximum(d23)])
+    #         push!(maxAbsErrorArray, maxAbsError)
     
-            MSE = ((posEmbedDist - y12).^2 + (negEmbedDist - y13).^2 + (PosNegEmbedDist - y23).^2) 
-            MSE = mean(sqrt.(MSE))
-            totalMSE += MSE
-            numTriplets += size(Xacr)[3]
-        end
+    #         MSE = ((posEmbedDist - y12).^2 + (negEmbedDist - y13).^2 + (PosNegEmbedDist - y23).^2) 
+    #         MSE = mean(sqrt.(MSE))
+    #         totalMSE += MSE
+    #         numTriplets += size(Xacr)[3]
+    #     end
     
-        averageAbsError = mean(averageAbsErrorArray)
-        maxAbsError = maximum(maxAbsErrorArray)
+    #     averageAbsError = mean(averageAbsErrorArray)
+    #     maxAbsError = maximum(maxAbsErrorArray)
     
-        averageMSEPerTriplet = totalMSE / numTriplets
-        @printf("Epoch MSE is %s \n", totalMSE)
-        @printf("Average MSE per triplet is %s \n", round(averageMSEPerTriplet, digits=4))
-        @printf("Average abs error is %s \n", round(averageAbsError, digits=4))
-        @printf("Max abs error is %s \n", round(maxAbsError, digits=4))
-        @printf("Total abs error is %s \n", totalAbsError, )
-        @printf("Number of triplets compared %s \n", numTriplets)
+    #     averageMSEPerTriplet = totalMSE / numTriplets
+    #     @printf("Epoch MSE is %s \n", totalMSE)
+    #     @printf("Average MSE per triplet is %s \n", round(averageMSEPerTriplet, digits=4))
+    #     @printf("Average abs error is %s \n", round(averageAbsError, digits=4))
+    #     @printf("Max abs error is %s \n", round(maxAbsError, digits=4))
+    #     @printf("Total abs error is %s \n", totalAbsError, )
+    #     @printf("Number of triplets compared %s \n", numTriplets)
     
 
-        perm = sortperm(trueDistanceArray)
+    #     perm = sortperm(trueDistanceArray)
 
-        fig = plot(scatter(trueDistanceArray[perm], predictedDistanceArray[perm],  label = ["True ED", "Predicted ED"]), title="True vs. Predicted edit distance")
-        savefig(fig, figSavePath)
+    #     fig = plot(scatter(trueDistanceArray[perm], predictedDistanceArray[perm],  label = ["True ED", "Predicted ED"]), title="True vs. Predicted edit distance")
+    #     savefig(fig, figSavePath)
 
-        return totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets
-    end
+    #     return totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets
+    # end
 
 
     anynan(x) = any(y -> any(isnan, y), x)

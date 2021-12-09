@@ -18,33 +18,33 @@ module Dataset
 
     function generateSequences(numSequences::Int64, minSequenceLength::Int64,
          maxSequenceLength::Int64, alphabet::Vector{Char},
-         ratioOfRandom=0.1, similarityMin=0.6, similarityMaxProb=0.95)::Array{String}
+         ratioOfRandom=0.1, similarityMin=0.4, similarityMaxProb=0.95)::Array{String}
 
         # It's very likely for a sequence to be similar to another sequence, but 
-        # most sequences are dissimilar to each other 
-        
-        n = rand(minSequenceLength:maxSequenceLength)
+        # most sequences are dissimilar to each other
+
+        # First we populate the sequence set with random sequences
         sequenceSet = Set()
-        push!(sequenceSet, randstring(alphabet, n))
+
+        for i in 1:Int(numSequences*ratioOfRandom)
+            n = rand(minSequenceLength:maxSequenceLength)
+            push!(sequenceSet, randstring(alphabet, n))
+        end
+
         while length(sequenceSet) < numSequences
             n = rand(minSequenceLength:maxSequenceLength)
-            if rand() < ratioOfRandom
-                s = randstring(alphabet, n)
-                push!(sequenceSet, s)
-            else
-                ref = rand(sequenceSet)
-                s = []
-                r = rand(Uniform(similarityMin, similarityMaxProb), 1)[1]
-                for char in ref
-                    if rand() < r
-                        push!(s, char)
-                    else
-                        push!(s, rand(alphabet))
-                    end
+            ref = rand(sequenceSet)
+            s = []
+            r = rand(Uniform(similarityMin, similarityMaxProb), 1)[1]
+            for char in ref
+                if rand() < r
+                    push!(s, char)
+                else
+                    push!(s, rand(alphabet))
                 end
-                s = join(s)
-                push!(sequenceSet, s)
             end
+            s = join(s)
+            push!(sequenceSet, s)
         end
         return collect(sequenceSet)
     end

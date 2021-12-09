@@ -71,14 +71,14 @@ embeddingModel = LoadModel(Utils.getBestModelPath(Constants.MODEL_SAVE_DIR, Cons
 trainmode!(embeddingModel, false)
 
 evalDatasetHelper = Dataset.TrainingDataset(Constants.NUM_EVAL_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
-evalDataset = evalDatasetHelper.getTripletBatch(100)
-evalDatasetHelper.shuffleTripletBatch!(evalDataset)
-evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, 1)
+# evalDataset = evalDatasetHelper.getTripletBatch(100)
+# evalDatasetHelper.shuffleTripletBatch!(evalDataset)
+# evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, 1)
 
-Utils.evaluateModel(evalDatasetBatches, embeddingModel, Constants.MAX_STRING_LENGTH, method=Constants.DISTANCE_METHOD)
+Utils.evaluateModel(evalDatasetHelper, embeddingModel, Constants.MAX_STRING_LENGTH, method=Constants.DISTANCE_METHOD)
 
 
-Utils.getNNFromEmbeddings(evalDatasetHelper, embeddingModel, Constants.MAX_STRING_LENGTH; bsize=128, method="l2", numNN=100, estErrorN=1000)
+# Utils.evaluateModel(evalDatasetHelper, embeddingModel, Constants.MAX_STRING_LENGTH; bsize=128, method="l2", numNN=100, estErrorN=1000)
 
 # totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets = evaluateModel(evalDataset, embeddingModel)
 

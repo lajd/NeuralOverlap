@@ -64,9 +64,17 @@ module Model
     end
 
 
-    function _getInputConvLayer(;k=3, c=8, activation=relu, withBatchnorm=false, withInputBatchnorm=false)::Array
+    function _getInputConvLayer(;k=3, c=8, activation=relu, withBatchnorm=false, withInputBatchnorm=false, poolingMethod="max", poolKernel=2)::Array
         # -> CONV/FC -> BatchNorm -> ReLu(or other activation) -> Dropout -> CONV/FC ->
         layers = []
+
+        if poolingMethod == "max"
+            pool = MaxPool((poolKernel,); pad=0)
+        elseif poolingMethod == "mean"
+            pool = MeanPool((poolKernel,); pad=0)
+        else
+            thow("Invalid")
+        end
 
         if withBatchnorm
             if withInputBatchnorm
@@ -74,29 +82,37 @@ module Model
             end
             push!(layers, Conv((k,), 1 => c, identity; bias = false, stride=1, pad=1))
             push!(layers, BatchNorm(c, activation))
-            push!(layers, MaxPool((k,); pad=0))
+            push!(layers, pool)
         else
             push!(layers, Conv((k,), 1 => c, activation; bias = false, stride=1, pad=1))
-            push!(layers, MaxPool((k,); pad=0))
+            push!(layers, pool)
         end
         return layers
     end
 
-    function _getIntermediateConvLayers(fin, numLayers::Int64; k=3, c=8, activation=relu, withBatchnorm=false)::Array
+    function _getIntermediateConvLayers(fin, numLayers::Int64; k=3, c=8, activation=relu, withBatchnorm=false, poolingMethod="max", poolKernel=2)::Array
         # -> CONV/FC -> BatchNorm -> ReLu(or other activation) -> Dropout -> CONV/FC ->
         layers = []
         
+        if poolingMethod == "max"
+            pool = MaxPool((poolKernel,); pad=0)
+        elseif poolingMethod == "mean"
+            pool = MeanPool((poolKernel,); pad=0)
+        else
+            thow("Invalid")
+        end
+    
         bnDim = fin
         if numLayers > 0
             for _ in 1:numLayers
                 if withBatchnorm
                     push!(layers, Conv((k,), c => c, identity; bias = false, stride=1, pad=1))
                     push!(layers, BatchNorm(c, activation))
-                    push!(layers, MaxPool((k,); pad=0))
-                    bnDim = getConvMPSize(bnDim, 1, k=k)  # Add one for input
+                    push!(layers, pool)
+                    bnDim = getConvMPSize(bnDim, 1, convK=k, poolK=poolKernel)  # Add one for input
                 else
                     push!(layers, Conv((k,), c => c, activation; bias = false, stride=1, pad=1))
-                    push!(layers, MaxPool((k,); pad=0))
+                    push!(layers, pool)
                 end
             end
         end
@@ -140,11 +156,11 @@ module Model
     end
 
     function mpOutDim(l, k)
-        return getKernalOutputDim(l, 3, p=0, s=3)
+        return getKernalOutputDim(l, k, p=0, s=k)
     end
 
-    function getConvMPSize(l_in, numConvLayers; k=3)
-        out(in) = mpOutDim(convOutDim(in, k), k)
+    function getConvMPSize(l_in, numConvLayers; convK=3, poolK=2)
+        out(in) = mpOutDim(convOutDim(in, convK), poolK)
         l_out = l_in
         for _ in 1:numConvLayers
             l_out = out(l_out)
@@ -152,8 +168,8 @@ module Model
         return l_out
     end
 
-    function getFlatSize(l_in, numConvLayers; c=8, k=3)
-        out(in) = mpOutDim(convOutDim(in, k), k)
+    function getFlatSize(l_in, numConvLayers; c=8, convK=3, poolK=2)
+        out(in) = mpOutDim(convOutDim(in, convK), poolK)
         l_out = l_in
         for _ in 1:numConvLayers
             l_out = out(l_out)
@@ -162,27 +178,29 @@ module Model
     end
 
 
-    function getModel(maxSeqLen::Int64, embDim::Int64; numIntermediateConvLayers::Int64=0, numFCLayers::Int64=1, activation=relu, k=3, c=8, withBatchnorm=false, withDropout=false)::Chain
+    function getModel(maxSeqLen::Int64, embDim::Int64; numIntermediateConvLayers::Int64=0,
+        numFCLayers::Int64=1, FCAct=relu, ConvAct=relu, k=3, c=8, withBatchnorm=false,
+        withDropout=false, poolingMethod="max", poolKernel=2)::Chain
         """
         x = (1024, 1, 64)
         x1 = (1024, 8, 64)
         x2 = (341, 8, 64)
         """
         l_in = maxSeqLen * Constants.ALPHABET_DIM
-        flatSize = getFlatSize(l_in, numIntermediateConvLayers + 1, c=c)  # Add one for input
-        f1 = getFlatSize(l_in, 1, c=c)  # one for input
+        flatSize = getFlatSize(l_in, numIntermediateConvLayers + 1, c=c, convK=k, poolK=poolKernel)  # Add one for input
+        f1 = getFlatSize(l_in, 1, c=c, convK=k, poolK=poolKernel)  # one for input
 
         embeddingModel = Chain(
             # Input conv
             # Conv((3,), 1 => 8, activation; bias = false, stride=1, pad=1),
             # MaxPool((3,); pad=0),
-            _getInputConvLayer(activation=activation, k=k, c=c, withBatchnorm=withBatchnorm)...,
+            _getInputConvLayer(activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel)...,
             # Intermediate convs
-            _getIntermediateConvLayers(f1, numIntermediateConvLayers, activation=activation, k=k, c=c, withBatchnorm=withBatchnorm)...,
+            _getIntermediateConvLayers(f1, numIntermediateConvLayers, activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel)...,
             # Conv((3,), 8 => 8, relu; bias = false, stride=1, pad=1),
             # MaxPool((3,); pad=0),
             flatten,
-            _getFCOutput(flatSize, embDim, numFCLayers, withDropout=withDropout, withBatchnorm=withBatchnorm)...,
+            _getFCOutput(flatSize, embDim, numFCLayers, withDropout=withDropout, activation=FCAct, withBatchnorm=withBatchnorm)...,
             # flatten,
             # Dense(2728, 128)
         ) |> DEVICE
