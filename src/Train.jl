@@ -80,22 +80,19 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
                 timeSpentFetchingData += @elapsed begin
                     batchDict = trainDataHelper.getTripletBatch(Constants.BSIZE)
                     batchTuple = trainDataHelper.batchToTuple(batchDict)
+                    ids_and_reads = batchTuple[1:6]
+                    tensorBatch = batchTuple[7:end] |> DEVICE
                 end
-
-                ids_and_reads = batchTuple[1:6]
-                tensorBatch = batchTuple[7:end] |> DEVICE
 
                 timeSpentForward += @elapsed begin
                     # lReg, rReg = Model.getLossScaling(epoch, regularizationSteps, lReg, rReg)
                     gs = gradient(ps) do
-                        rankLoss, embeddingLoss, trainingLoss = Model.tripletLoss(
+                        rankLoss, embeddingLoss, q = Model.tripletLoss(
                             tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg
                         )
-
                         epochRankLoss += rankLoss; epochEmbeddingLoss += embeddingLoss;
                         epochTrainingLoss += trainingLoss;
-
-                        return trainingLoss
+                        return q
                     end
                 end
 

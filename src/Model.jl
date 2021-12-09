@@ -225,9 +225,9 @@ module Model
             @assert minimum(mseLoss) >= 0
         end
 
-        rankLoss = lReg * rankLoss
-        mseLoss = rReg * sqrt.(mseLoss)
+        rankLoss = lReg * mean(rankLoss)
+        mseLoss = rReg * mean(sqrt.(mseLoss))
 
-        return mean(rankLoss), mean(mseLoss), mean(rankLoss + mseLoss)
+        return rankLoss, mseLoss, rankLoss + mseLoss
     end
 end

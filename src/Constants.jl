@@ -41,7 +41,7 @@ module Constants
 
     # NUM_TRAINING_EXAMPLES = 1000
     # NUM_EVAL_EXAMPLES = 500
-    NUM_TRAINING_EXAMPLES = 5000
+    NUM_TRAINING_EXAMPLES = 1000
     NUM_EVAL_EXAMPLES = 150
     NUM_BATCHES = 512
 
@@ -59,7 +59,7 @@ module Constants
     MODEL_SAVE_SUFFIX = "_synthetic.bson"
 
     # REMOVE ME
-    ALLOW_SCALAR = true
+    ALLOW_SCALAR = false
 
     EXPERIMENT_NAME = "3_conv_2_fc_w_drop_w_bn_cosine"
     EXPERIMENT_DIR = joinpath("data/experiments", EXPERIMENT_NAME)
