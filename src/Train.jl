@@ -67,9 +67,7 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
 
     regularizationSteps = Model.getLossRegularizationSteps(numEpochs)
     
-    maxgsArray = []
-    mingsArray = []
-    meangsArray = []
+    maxgsArray = [];  mingsArray = []; meangsArray = []
 
     @printf("Beginning training...\n")
 
@@ -79,7 +77,6 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
         batchNum = 0
 
         local epochRankLoss = epochEmbeddingLoss = epochTrainingLoss = 0
-
         local timeSpentFetchingData = timeSpentForward = timeSpentBackward = 0
 
         @time begin
@@ -98,19 +95,19 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
                 timeSpentForward += @elapsed begin
                     # lReg, rReg = Model.getRegularization(epoch, regularizationSteps, lReg, rReg)
                     gs = gradient(ps) do
-                        rankLoss, embeddingLoss, trainingLoss = Model.tripletLoss(tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg)
-                        epochRankLoss += rankLoss
-                        epochEmbeddingLoss += embeddingLoss
-                        epochTrainingLoss += trainingLoss
+                        rankLoss, embeddingLoss, trainingLoss = Model.tripletLoss(
+                            tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg
+                        )
+
+                        epochRankLoss += rankLoss; epochEmbeddingLoss += embeddingLoss; epochTrainingLoss += trainingLoss
+
                         return trainingLoss
                     end
                 end
 
                 timeSpentBackward += @elapsed begin
                     maxgs, mings, meangs = Utils.validateGradients(gs)
-                    push!(maxgsArray, maxgs)
-                    push!(mingsArray, mings)
-                    push!(meangsArray, meangs)
+                    push!(maxgsArray, maxgs); push!(mingsArray, mings);  push!(meangsArray, meangs)
                     update!(opt, ps, gs)
 
                     # Terminate on NaN
@@ -155,7 +152,14 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
                 @info(rankLossArray)
                 @info(embeddingLossArray)
 
-                fig = plot(1:length(trainingLossArray), [trainingLossArray, rankLossArray, embeddingLossArray], label=["training loss" "rank loss" "embedding loss"], yaxis=:log)
+                fig = plot(
+                    1:length(trainingLossArray),
+                    [trainingLossArray, rankLossArray, embeddingLossArray],
+                    label=["training loss" "rank loss" "embedding loss"],
+#                     yaxis=:log,
+                    xlabel="Epoch",
+                    ylabel="Loss"
+                )
                 savefig(fig, string("training_losses.png"))
             end
 

@@ -142,6 +142,20 @@ module Utils
         end
     end
 
+    function recallTopN(predKNN, actualKNN; T=100,K=100)
+        """
+        T is the number of relevant documents
+        K is the numer of "true" documents
+        """
+        # If the items ranking  top T contain k of the true top-k neighbors, the recall is k′/k.
+        # Recall= (Relevant_Items_Recommended in top-k) / (Relevant_Items)
+        predTNN = predKNN[1:min(T, length(predKNN))]
+        actualKNN = actualKNN[1: min(K, length(actualKNN))]
+        intersection = sum([1 for i in predTNN if i in actualKNN])
+        recall = intersection / T
+        return recall
+    end
+
     function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=128, method="l2", numNN=100, estErrorN=1000)
         idSeqDataMap = datasetHelper.getIdSeqDataMap()
         distanceMatrix = datasetHelper.getDistanceMatrix()
@@ -155,7 +169,7 @@ module Utils
         end
 
         X = datasetHelper.formatOneHotSequenceArray(Xarray) |> DEVICE
-        
+
         Earray = []
 
         i = 1
@@ -190,24 +204,15 @@ module Utils
             "top100Recall" => DefaultDict(0.),
         )
 
-        function recallTopN(predKNN, actualKNN;T=100,K=100)
-            K = min(K, length(actualKNN))
-            predTNN = predKNN[1:T]
-            actualKNN = actualKNN[1:K]
-            intersection = sum([1 for i in predTNN if i in actualKNN])
-            recall = intersection / min(T, K)
-            return recall
-        end
-
         for id in 1:n
             # Don't include identical examples
             predicted_knns = sortperm(predictedDistanceMatrix[id, 2:end])[1:numNN]
             actual_knns = idSeqDataMap[id]["k100NN"][2:end]
             for k in range(1, 101, step=10)
-                recallDict["top1Recall"][k] += recallTopN(predicted_knns, actual_knns, T=1, K=k)
-                recallDict["top10Recall"][k] += recallTopN(predicted_knns, actual_knns, T=10, K=k)
-                recallDict["top50Recall"][k] += recallTopN(predicted_knns, actual_knns, T=50, K=k)
-                recallDict["top100Recall"][k] += recallTopN(predicted_knns, actual_knns, T=100, K=k)
+                recallDict["top1Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=1, K=k)
+                recallDict["top10Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=10, K=k)
+                recallDict["top50Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=50, K=k)
+                recallDict["top100Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=100, K=k)
             end
         end
 
@@ -236,7 +241,7 @@ module Utils
                 perm = sortperm(x)
                 x = x[perm]
                 y = collect(values(recallDict[topNKey]))[perm]
-                fig = plot(x, y)
+                fig = plot(x, y, title=topNKey, xlabel="K-value", ylabel="Recall", label=["Recall"])
                 savefig(fig, string("testRecall", "_", topNKey, ".png"))
             end
         end
@@ -255,93 +260,6 @@ module Utils
         @printf("Number of triplets compared %s \n", estErrorN)
 
         return meanAbsError, maxAbsError, minAbsError, totalAbsError
-
     end
-
-    # function evaluateModel(evalDatasethelper, model, maxStringLength; figSavePath="test.png", distanceMethod="l2")
-
-    #     totalMSE = 0
-    #     numTriplets = 0
-    
-    #     averageAbsErrorArray = []
-    #     maxAbsErrorArray = []
-    #     totalAbsError = 0 
-    #     trueDistanceArray = []
-    #     predictedDistanceArray = []
-
-    #     model = model |> DEVICE
-    
-    
-    #     for fullBatch in evalBatches
-    #         # fullBatch = dataHelper.getTripletBatch(Constants.BSIZE)  
-    #         # trainDataHelper.shuffleTripletBatch!(fullBatch)
-    #         # fullBatch = trainDataHelper.extractBatchSubsets(fullBatch, 5)
-    
-    #         reads = fullBatch[1:6]
-    #         batch = fullBatch[7:end]
-        
-    #         batch = batch |> DEVICE
-        
-    #         Xacr, Xpos, Xneg, y12, y13, y23 = batch
-        
-    #         Eacr = model(Xacr)
-    #         Epos = model(Xpos)
-    #         Eneg = model(Xneg)
-        
-    #         # MSE
-    #         posEmbedDist = Utils.EmbeddingDistance(Eacr, Epos, distanceMethod, dims=1) |> DEVICE # 1D dist vector of size bsize
-    #         negEmbedDist =  Utils.EmbeddingDistance(Eacr, Eneg, distanceMethod, dims=1) |> DEVICE
-    #         PosNegEmbedDist =  Utils.EmbeddingDistance(Epos, Eneg, distanceMethod, dims=1) |> DEVICE
-    
-    #         # @assert maximum(posEmbedDist) <= 1
-    #         @assert maximum(y12) <= 1
-    
-    #         d12 = abs.(posEmbedDist - y12) * maxStringLength
-    #         d13 = abs.(negEmbedDist - y13) * maxStringLength
-    #         d23 = abs.(PosNegEmbedDist - y23) * maxStringLength
-
-    #         push!(trueDistanceArray, y12...)
-    #         push!(trueDistanceArray, y13...)
-    #         push!(trueDistanceArray, y23...)
-
-
-    #         push!(predictedDistanceArray, posEmbedDist...)
-    #         push!(predictedDistanceArray, negEmbedDist...)
-    #         push!(predictedDistanceArray, PosNegEmbedDist...)
-
-    #         totalAbsError += sum(d12) + sum(d13) + sum(d23)
-            
-    #         averageAbsError = mean([mean(d12), mean(d13), mean(d23)])
-    #         push!(averageAbsErrorArray, averageAbsError)
-    #         maxAbsError = maximum([maximum(d12), maximum(d13), maximum(d23)])
-    #         push!(maxAbsErrorArray, maxAbsError)
-    
-    #         MSE = ((posEmbedDist - y12).^2 + (negEmbedDist - y13).^2 + (PosNegEmbedDist - y23).^2) 
-    #         MSE = mean(sqrt.(MSE))
-    #         totalMSE += MSE
-    #         numTriplets += size(Xacr)[3]
-    #     end
-    
-    #     averageAbsError = mean(averageAbsErrorArray)
-    #     maxAbsError = maximum(maxAbsErrorArray)
-    
-    #     averageMSEPerTriplet = totalMSE / numTriplets
-    #     @printf("Epoch MSE is %s \n", totalMSE)
-    #     @printf("Average MSE per triplet is %s \n", round(averageMSEPerTriplet, digits=4))
-    #     @printf("Average abs error is %s \n", round(averageAbsError, digits=4))
-    #     @printf("Max abs error is %s \n", round(maxAbsError, digits=4))
-    #     @printf("Total abs error is %s \n", totalAbsError, )
-    #     @printf("Number of triplets compared %s \n", numTriplets)
-    
-
-    #     perm = sortperm(trueDistanceArray)
-
-    #     fig = plot(scatter(trueDistanceArray[perm], predictedDistanceArray[perm],  label = ["True ED", "Predicted ED"]), title="True vs. Predicted edit distance")
-    #     savefig(fig, figSavePath)
-
-    #     return totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets
-    # end
-
-
     anynan(x) = any(y -> any(isnan, y), x)
 end

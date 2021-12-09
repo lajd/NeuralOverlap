@@ -244,6 +244,19 @@ end
             @assert isapprox(realDists[j], y12[j] * maxStringLength)  (x1, x2)
         end
     end
+
+    @testset "Test Recall" begin
+        @testset "Test k=1,t=20" begin
+            # https://ils.unc.edu/courses/2013_spring/inls509_001/lectures/10-EvaluationMetrics.pdf
+            t = 20
+            predKNN = [1, -1, 3, 4, 5, 6, 7, -1, 9,-1]
+            expectedRecall = [1/20, 1/20, 2/20, 3/20, 4/20, 5/20, 6/20, 6/20, 7/20, 7/20]
+            actualKNN = Array(1:10)
+            for k in 1:10
+                @assert isapprox(Utils.recallTopN(predKNN, actualKNN;T=t, K=k), expectedRecall[k])
+            end
+        end
+    end
     
 end
 
