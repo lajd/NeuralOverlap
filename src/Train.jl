@@ -82,7 +82,6 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
             # Set to train mode
             trainmode!(model, true)
             for _ in 1:nbs
-
                 timeSpentFetchingData += @elapsed begin
                     batchDict = trainDataHelper.getTripletBatch(Constants.BSIZE)
                     batchTuple = trainDataHelper.batchToTuple(batchDict)
@@ -123,8 +122,8 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
             @printf("-----Training dataset-----\n")
             @printf("Epoch %s stats:\n", epoch)
             @printf("Average loss: %s, lReg: %s, rReg: %s\n", averageEpochLoss, lReg, rReg)
-            @printf("Average Rank loss: %s, Average Embedding loss %s\n", round(EpochRankLoss/nbs, digits=2), round(EpochEmbeddingLoss/nbs, digits=2))
-            @printf("DataFetchTime %s, TimeForward %s, TimeBackward %s\n", round(timeSpentFetchingData/nbs, digits=2), round(timeSpentForward/nbs, digits=2), round(timeSpentBackward/nbs, digits=2))
+            @printf("Average Rank loss: %s, Average Embedding loss %s\n", round(EpochRankLoss/nbs, digits=8), round(EpochEmbeddingLoss/nbs, digits=8))
+            @printf("DataFetchTime %s, TimeForward %s, TimeBackward %s\n", round(timeSpentFetchingData, digits=2), round(timeSpentForward, digits=2), round(timeSpentBackward, digits=2))
             @printf("Average Rank loss: %s, Average Embedding loss %s\n", EpochRankLoss/nbs, EpochEmbeddingLoss/nbs)
             @printf("maxGS: %s, minGS: %s, meanGS: %s\n", maximum(maxgsArray), minimum(mingsArray), mean(meangsArray))
             EpochRankLoss = 0

@@ -172,13 +172,14 @@ module Utils
 
         predictedDistanceMatrix = convert.(Float32, zeros(n, n))
 
+        # Get pairwise distance
+
         for refIdx in 1:n
-            for compIdx in 1:n
-                e1 = E[1:end, refIdx]
-                e2 = E[1:end, compIdx]
-                d = Utils.EmbeddingDistance(e1, e2, method, dims=1)[1]
-                predictedDistanceMatrix[refIdx, compIdx] = d
-            end
+            e1 = E[1:end, refIdx]
+            refE = hcat([e1 for _ in 1:n]...)
+            compE = hcat([E[1:end, compIdx] for compIdx in 1:n]...)
+            D = Utils.EmbeddingDistance(refE, compE, method, dims=1)
+            predictedDistanceMatrix[refIdx, 1:end] = D
         end
 
         # Get k-nns and recall
