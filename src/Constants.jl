@@ -10,19 +10,19 @@ module Constants
     MIN_STRING_LENGTH = 128
     MAX_STRING_LENGTH = 128
 
-    NUM_INTERMEDIATE_CONV_LAYERS = 2
+    NUM_INTERMEDIATE_CONV_LAYERS = 4
     NUM_FC_LAYERS = 1
 
     BSIZE = 64
 
     NUM_EPOCHS = 1000
 
-    WITH_BATCHNORM = false
-    WITH_DROPOUT = false
+    WITH_BATCHNORM = true
+    WITH_DROPOUT = true
 
     FC_ACTIVATION = relu
     CONV_ACTIVATION = identity
-    LR = 1
+    LR = 0.1
 
     # NUM_TRAINING_EXAMPLES = 1000
     # NUM_EVAL_EXAMPLES = 500

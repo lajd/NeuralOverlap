@@ -53,9 +53,7 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
     local trainingLoss
     local EpochRankLoss = 0
     local EpochEmbeddingLoss = 0
-    local timeSpentFetchingData = 0
-    local timeSpentForward = 0
-    local timeSpentBackward = 0
+
     local trainingLossArray = []
     local rankLossArray = []
     local embeddingLossArray = []
@@ -81,6 +79,8 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
         batchNum = 0
 
         local epochRankLoss = epochEmbeddingLoss = epochTrainingLoss = 0
+
+        local timeSpentFetchingData = timeSpentForward = timeSpentBackward = 0
 
         @time begin
             @info("Starting epoch %s...\n", epoch)
@@ -138,6 +138,7 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
             push!(embeddingLossArray, round(epochRankLoss/nbs, digits=8))
 
             epochTrainingLoss = epochEmbeddingLoss = epochRankLoss = 0
+            timeSpentFetchingData = timeSpentForward = timeSpentBackward = 0
 
             if mod(epoch, evalEvery) == 1
                 evaluateTime = @elapsed begin
