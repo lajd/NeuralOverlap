@@ -87,12 +87,12 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
                 timeSpentForward += @elapsed begin
                     # lReg, rReg = Model.getLossScaling(epoch, regularizationSteps, lReg, rReg)
                     gs = gradient(ps) do
-                        rankLoss, embeddingLoss, q = Model.tripletLoss(
+                        rankLoss, embeddingLoss, fullLoss = Model.tripletLoss(
                             tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg
                         )
                         epochRankLoss += rankLoss; epochEmbeddingLoss += embeddingLoss;
-                        epochTrainingLoss += trainingLoss;
-                        return q
+                        epochTrainingLoss += fullLoss;
+                        return fullLoss
                     end
                 end
 
