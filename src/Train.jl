@@ -56,6 +56,9 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
     local timeSpentFetchingData = 0
     local timeSpentForward = 0
     local timeSpentBackward = 0
+    local trainingLossArray = []
+    local rankLossArray = []
+    local embeddingLossArray = []
 
     bestAverageEpochLoss = 1e6
 
@@ -77,6 +80,8 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
         sumEpochLoss = 0
         batchNum = 0
 
+        local epochRankLoss = epochEmbeddingLoss = epochTrainingLoss = 0
+
         @time begin
             @info("Starting epoch %s...\n", epoch)
             # Set to train mode
@@ -93,9 +98,10 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
                 timeSpentForward += @elapsed begin
                     # lReg, rReg = Model.getRegularization(epoch, regularizationSteps, lReg, rReg)
                     gs = gradient(ps) do
-                        EpochRankLoss, EpochEmbeddingLoss, trainingLoss = Model.tripletLoss(tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg)
-                        EpochRankLoss += EpochRankLoss
-                        EpochEmbeddingLoss += EpochEmbeddingLoss
+                        rankLoss, embeddingLoss, trainingLoss = Model.tripletLoss(tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg)
+                        epochRankLoss += rankLoss
+                        epochEmbeddingLoss += embeddingLoss
+                        epochTrainingLoss += trainingLoss
                         return trainingLoss
                     end
                 end
@@ -126,8 +132,12 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
             @printf("DataFetchTime %s, TimeForward %s, TimeBackward %s\n", round(timeSpentFetchingData, digits=2), round(timeSpentForward, digits=2), round(timeSpentBackward, digits=2))
             @printf("Average Rank loss: %s, Average Embedding loss %s\n", EpochRankLoss/nbs, EpochEmbeddingLoss/nbs)
             @printf("maxGS: %s, minGS: %s, meanGS: %s\n", maximum(maxgsArray), minimum(mingsArray), mean(meangsArray))
-            EpochRankLoss = 0
-            EpochEmbeddingLoss = 0
+
+            push!(trainingLossArray, round(epochTrainingLoss/nbs, digits=8))
+            push!(rankLossArray, round(epochEmbeddingLoss/nbs, digits=8))
+            push!(embeddingLossArray, round(epochRankLoss/nbs, digits=8))
+
+            epochTrainingLoss = epochEmbeddingLoss = epochRankLoss = 0
 
             if mod(epoch, evalEvery) == 1
                 evaluateTime = @elapsed begin
@@ -139,6 +149,13 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
                     # totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets)
                 end
                 @printf("Evaluation time %s", evaluateTime)
+
+                @info(trainingLossArray)
+                @info(rankLossArray)
+                @info(embeddingLossArray)
+
+                fig = plot(1:length(trainingLossArray), [trainingLossArray, rankLossArray, embeddingLossArray], label=["training loss" "rank loss" "embedding loss"], yaxis=:log)
+                savefig(fig, string("training_losses.png"))
             end
 
             # Save the model, removing old ones
