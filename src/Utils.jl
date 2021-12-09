@@ -154,7 +154,7 @@ module Utils
             push!(Xarray, v["oneHotSeq"])
         end
 
-        X = datasetHelper.formatOneHotSequenceArray(Xarray)
+        X = datasetHelper.formatOneHotSequenceArray(Xarray) |> DEVICE
         
         Earray = []
 
@@ -226,7 +226,6 @@ module Utils
 
             absError = abs(predDist - trueDist)
             push!(absErrorArray, absError)
-
         end
 
         for (topNKey, recallAtK) in recallDict

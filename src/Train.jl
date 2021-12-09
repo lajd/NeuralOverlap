@@ -53,6 +53,9 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
     local trainingLoss
     local EpochRankLoss = 0
     local EpochEmbeddingLoss = 0
+    local timeSpentFetchingData = 0
+    local timeSpentForward = 0
+    local timeSpentBackward = 0
 
     bestAverageEpochLoss = 1e6
 
@@ -67,75 +70,89 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
     mingsArray = []
     meangsArray = []
 
-    @printf("Beginning training...")
+    @printf("Beginning training...\n")
+
+    nbs = Constants.NUM_BATCHES
     for epoch in 1:numEpochs
         sumEpochLoss = 0
-
         batchNum = 0
 
         @time begin
             @info("Starting epoch %s...\n", epoch)
             # Set to train mode
             trainmode!(model, true)
-            for _ in 1:Constants.NUM_BATCHES
-                batchDict = trainDataHelper.getTripletBatch(Constants.BSIZE)
-                batchTuple = trainDataHelper.batchToTuple(batchDict)
+            for _ in 1:nbs
+
+                timeSpentFetchingData += @elapsed begin
+                    batchDict = trainDataHelper.getTripletBatch(Constants.BSIZE)
+                    batchTuple = trainDataHelper.batchToTuple(batchDict)
+                end
 
                 ids_and_reads = batchTuple[1:6]
                 tensorBatch = batchTuple[7:end] |> DEVICE
 
-                # lReg, rReg = Model.getRegularization(epoch, regularizationSteps, lReg, rReg)
-                gs = gradient(ps) do
-                    EpochRankLoss, EpochEmbeddingLoss, trainingLoss = Model.tripletLoss(tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg)
-                    EpochRankLoss += EpochRankLoss
-                    EpochEmbeddingLoss += EpochEmbeddingLoss
-                    return trainingLoss
+                timeSpentForward += @elapsed begin
+                    # lReg, rReg = Model.getRegularization(epoch, regularizationSteps, lReg, rReg)
+                    gs = gradient(ps) do
+                        EpochRankLoss, EpochEmbeddingLoss, trainingLoss = Model.tripletLoss(tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg)
+                        EpochRankLoss += EpochRankLoss
+                        EpochEmbeddingLoss += EpochEmbeddingLoss
+                        return trainingLoss
+                    end
                 end
-                
-                maxgs, mings, meangs = Utils.validateGradients(gs)
-                push!(maxgsArray, maxgs)
-                push!(mingsArray, mings)
-                push!(meangsArray, meangs)
 
-                update!(opt, ps, gs)
+                timeSpentBackward += @elapsed begin
+                    maxgs, mings, meangs = Utils.validateGradients(gs)
+                    push!(maxgsArray, maxgs)
+                    push!(mingsArray, mings)
+                    push!(meangsArray, meangs)
+                    update!(opt, ps, gs)
+
+                    # Terminate on NaN
+                    if Utils.anynan(Flux.params(model))
+                        @error("Model params NaN after update")
+                        break
+                    end
+                end
 
                 sumEpochLoss = sumEpochLoss + trainingLoss
-
-                # Terminate on NaN
-                if Utils.anynan(Flux.params(model))
-                    @error("Model params NaN after update")
-                    break
-                end
                 batchNum += 1
             end
 
-            averageEpochLoss = sumEpochLoss / Constants.NUM_BATCHES
+            averageEpochLoss = sumEpochLoss / nbs
             @printf("-----Training dataset-----\n")
             @printf("Epoch %s stats:\n", epoch)
             @printf("Average loss: %s, lReg: %s, rReg: %s\n", averageEpochLoss, lReg, rReg)
-            @printf("Average Rank loss: %s, Average Embedding loss %s\n", EpochRankLoss/Constants.NUM_BATCHES, EpochEmbeddingLoss/Constants.NUM_BATCHES)
+            @printf("Average Rank loss: %s, Average Embedding loss %s\n", round(EpochRankLoss/nbs, digits=2), round(EpochEmbeddingLoss/nbs, digits=2))
+            @printf("DataFetchTime %s, TimeForward %s, TimeBackward %s\n", round(timeSpentFetchingData/nbs, digits=2), round(timeSpentForward/nbs, digits=2), round(timeSpentBackward/nbs, digits=2))
+            @printf("Average Rank loss: %s, Average Embedding loss %s\n", EpochRankLoss/nbs, EpochEmbeddingLoss/nbs)
             @printf("maxGS: %s, minGS: %s, meanGS: %s\n", maximum(maxgsArray), minimum(mingsArray), mean(meangsArray))
             EpochRankLoss = 0
             EpochEmbeddingLoss = 0
 
-
             if mod(epoch, evalEvery) == 1
-                # Set to test mode
-                @printf("-----Evaluation dataset-----\n")
-                trainmode!(model, false)
-                Utils.evaluateModel(evalDataHelper, model, Constants.MAX_STRING_LENGTH)
-                # @printf("totalMSE: %s, \n averageMSEPerTriplet: %s, \n averageAbsError: %s, \nmaxAbsError: %s,\n numTriplets: %s\n",
-                # totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets)
+                evaluateTime = @elapsed begin
+                    # Set to test mode
+                    @printf("-----Evaluation dataset-----\n")
+                    trainmode!(model, false)
+                    Utils.evaluateModel(evalDataHelper, model, Constants.MAX_STRING_LENGTH)
+                    # @printf("totalMSE: %s, \n averageMSEPerTriplet: %s, \n averageAbsError: %s, \nmaxAbsError: %s,\n numTriplets: %s\n",
+                    # totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets)
+                end
+                @printf("Evaluation time %s", evaluateTime)
             end
 
             # Save the model, removing old ones
             if epoch > 1 && averageEpochLoss < bestAverageEpochLoss
-                @printf("Saving new model...\n")
-                bestAverageEpochLoss = averageEpochLoss
-                modelName = string("edit_cnn_epoch", "epoch_", epoch, "_", "average_epoch_loss_", averageEpochLoss, Constants.MODEL_SAVE_SUFFIX)
-                Utils.removeOldModels(Constants.MODEL_SAVE_DIR, Constants.MODEL_SAVE_SUFFIX)
-                cpuModel = model |> cpu
-                @save joinpath(Constants.MODEL_SAVE_DIR, modelName) cpuModel
+                SaveModelTime = @elapsed begin
+                    @printf("Saving new model...\n")
+                    bestAverageEpochLoss = averageEpochLoss
+                    modelName = string("edit_cnn_epoch", "epoch_", epoch, "_", "average_epoch_loss_", averageEpochLoss, Constants.MODEL_SAVE_SUFFIX)
+                    Utils.removeOldModels(Constants.MODEL_SAVE_DIR, Constants.MODEL_SAVE_SUFFIX)
+                    cpuModel = model |> cpu
+                    @save joinpath(Constants.MODEL_SAVE_DIR, modelName) cpuModel
+                end
+                @printf("Save moodel time %s\n", SaveModelTime)
             end
         end
     end
@@ -150,17 +167,6 @@ embeddingModel = Model.getModel(Constants.MAX_STRING_LENGTH, Constants.EMBEDDING
  withBatchnorm=Constants.WITH_BATCHNORM, withDropout=Constants.WITH_DROPOUT,
  c=Constants.OUT_CHANNELS,k=Constants.KERNEL_SIZE, poolingMethod=Constants.POOLING_METHOD
  ) |> DEVICE
-
-# if isfile(Constants.DATASET_SAVE_PATH)
-#     trainingDatasetBatches = load(Constants.DATASET_SAVE_PATH,"trainingDatasetBatches",)
-#     @info("Loaded %s unique triplet pairs", Constants.BSIZE * Constants.NUM_BATCHES)
-# else
-#     dataset = Dataset.TrainingDataset(Constants.NUM_TRAINING_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
-#     trainingDatasetBatches = [dataset.getTripletBatch(Constants.BSIZE) for _ in 1:Constants.NUM_BATCHES]
-#     save(Constants.DATASET_SAVE_PATH,"trainingDatasetBatches", trainingDatasetBatches)
-#     @info("Number of triplet collisions encountered is: %s", dataset.numCollisions)
-#     @info("Created %s unique triplet pairs", Constants.BSIZE * Constants.NUM_BATCHES)
-# end
 
 trainDatasetHelper = Dataset.TrainingDataset(Constants.NUM_TRAINING_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
 Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000)
