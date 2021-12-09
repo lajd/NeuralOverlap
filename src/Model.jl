@@ -29,34 +29,7 @@ module Model
         global ArrayType = Union{Vector{Float32}, Matrix{Float32}, Array{Float32}}
     end
 
-    function getLossRegularizationSteps(maxEpochs::Int64)::Dict
-        step = Int32(maxEpochs / 5)
-        # ls = Dict(
-        #     step * 0 => (0., 10.),
-        #     step * 1 => (10., 10.),
-        #     step * 2 => (10., 1.),
-        #     step * 3 => (5., 0.1),
-        #     step * 4 => (1., 0.01),
-        # )
-
-        # ls = Dict(
-        #     step * 0 => (0., 10.),
-        #     step * 1 => (10., 10.),
-        #     step * 2 => (5., 1.),
-        #     step * 3 => (1., .1),
-        #     step * 4 => (0.1, 1),
-        # )
-        ls = Dict(
-            step * 0 => (0., 10.),
-            step * 1 => (10., 10.),
-            step * 2 => (10., 1.),
-            step * 3 => (5., 0.1),
-            step * 4 => (1., 0.1),
-        )
-        return ls
-    end
-
-    function getRegularization(epoch::Int64, regularizationSteps::Dict, lReg::Float64, rReg::Float64)::Tuple{Float64, Float64}
+    function getLossScaling(epoch::Int64, regularizationSteps::Dict, lReg::Float64, rReg::Float64)::Tuple{Float64, Float64}
         if haskey(regularizationSteps, epoch)
             return regularizationSteps[epoch]
         end
@@ -155,12 +128,12 @@ module Model
         return getKernalOutputDim(l, k)
     end
 
-    function mpOutDim(l, k)
+    function poolOutDim(l, k)
         return getKernalOutputDim(l, k, p=0, s=k)
     end
 
     function getConvMPSize(l_in, numConvLayers; convK=3, poolK=2)
-        out(in) = mpOutDim(convOutDim(in, convK), poolK)
+        out(in) = poolOutDim(convOutDim(in, convK), poolK)
         l_out = l_in
         for _ in 1:numConvLayers
             l_out = out(l_out)
@@ -169,7 +142,7 @@ module Model
     end
 
     function getFlatSize(l_in, numConvLayers; c=8, convK=3, poolK=2)
-        out(in) = mpOutDim(convOutDim(in, convK), poolK)
+        out(in) = poolOutDim(convOutDim(in, convK), poolK)
         l_out = l_in
         for _ in 1:numConvLayers
             l_out = out(l_out)
@@ -181,35 +154,24 @@ module Model
     function getModel(maxSeqLen::Int64, embDim::Int64; numIntermediateConvLayers::Int64=0,
         numFCLayers::Int64=1, FCAct=relu, ConvAct=relu, k=3, c=8, withBatchnorm=false,
         withDropout=false, poolingMethod="max", poolKernel=2)::Chain
-        """
-        x = (1024, 1, 64)
-        x1 = (1024, 8, 64)
-        x2 = (341, 8, 64)
-        """
+
         l_in = maxSeqLen * Constants.ALPHABET_DIM
         flatSize = getFlatSize(l_in, numIntermediateConvLayers + 1, c=c, convK=k, poolK=poolKernel)  # Add one for input
         f1 = getFlatSize(l_in, 1, c=c, convK=k, poolK=poolKernel)  # one for input
 
         embeddingModel = Chain(
             # Input conv
-            # Conv((3,), 1 => 8, activation; bias = false, stride=1, pad=1),
-            # MaxPool((3,); pad=0),
             _getInputConvLayer(activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel)...,
             # Intermediate convs
             _getIntermediateConvLayers(f1, numIntermediateConvLayers, activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel)...,
-            # Conv((3,), 8 => 8, relu; bias = false, stride=1, pad=1),
-            # MaxPool((3,); pad=0),
             flatten,
             _getFCOutput(flatSize, embDim, numFCLayers, withDropout=withDropout, activation=FCAct, withBatchnorm=withBatchnorm)...,
-            # flatten,
-            # Dense(2728, 128)
         ) |> DEVICE
         
         return embeddingModel
     end
 
     function formatOneHotSeq(x)
-        # x = PermutedDimsArray(x, (3, 2, 1))
         x = permutedims(x, (3, 2, 1))
         # View as 1d
         x = reshape(x, :, 1, Constants.BSIZE)
@@ -229,55 +191,18 @@ module Model
     function tripletLoss(Xacr::ArrayType, Xpos::ArrayType,
          Xneg::ArrayType, y12::ArrayType, y13::ArrayType,
          y23::ArrayType; embeddingModel, lReg::Float64=1.0, rReg::Float64=0.1)
-        
 
         # Xacr, Xpos, Xneg, y12, y13, y23 = tensorBatch
-        
         # FIXME: The below are done on CPU to avoid scalar indexing issues
-
-        # # println(size(Xacr))
-        # Xacr = permutedims(Xacr, (3, 2, 1))
-        # Xpos = permutedims(Xpos, (3, 2, 1))
-        # Xneg = permutedims(Xneg, (3, 2, 1))
-
-        # Xacr = reshape(Xacr, :, 1, Constants.BSIZE)
-        # Xpos = reshape(Xpos, :, 1, Constants.BSIZE)
-        # Xneg = reshape(Xneg, :, 1, Constants.BSIZE)
-
-
-        # Xacr = formatOneHotSeq(Xacr)
-        # Xpos = formatOneHotSeq(Xpos)
-        # Xneg = formatOneHotSeq(Xneg)
-
-        # Xacr = Xacr |> DEVICE
-        # Xpos = Xpos |> DEVICE
-        # Xneg = Xneg |> DEVICE
-
-        # y12 = y12 |> DEVICE
-        # y13 = y13 |> DEVICE
-        # y23 = y23 |> DEVICE
-
-        # Xacr = formatOneHotSeq(Xacr) |> DEVICE
-        # Xpos = formatOneHotSeq(Xpos) |> DEVICE
-        # Xneg = formatOneHotSeq(Xneg) |> DEVICE
-
-        # Xacr, Xpos, Xneg = formatOneHotSequences((Xacr, Xpos, Xneg))
-
         Embacr = embeddingModel(Xacr)
         Embpos = embeddingModel(Xpos)
         Embneg = embeddingModel(Xneg)
 
-
-        # julia> size(Embacr)
-        # (128, 512)
-
-        # julia> typeof(Embacr)
-        # CuArray{Float32, 2, CUDA.Mem.DeviceBuffer}
-
-
-        @assert any(isnan,Embacr) == false
-        @assert any(isnan,Embpos) == false
-        @assert any(isnan,Embneg) == false
+        if Constants.DEBUG
+            @assert any(isnan,Embacr) == false
+            @assert any(isnan,Embpos) == false
+            @assert any(isnan,Embneg) == false
+        end
 
         posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, Constants.DISTANCE_METHOD, dims=1) |> DEVICE  # 1D dist vector of size bsize
         negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, Constants.DISTANCE_METHOD, dims=1) |> DEVICE
@@ -285,21 +210,24 @@ module Model
 
         threshold = y13 - y12  # Positive
 
-        @assert any(isnan,posEmbedDist) == false
-        @assert any(isnan,negEmbedDist) == false
-        @assert any(isnan,PosNegEmbedDist) == false
-        @assert any(isnan,threshold) == false
-        @assert minimum(threshold) >= 0
+        if Constants.DEBUG
+            @assert any(isnan,posEmbedDist) == false
+            @assert any(isnan,negEmbedDist) == false
+            @assert any(isnan,PosNegEmbedDist) == false
+            @assert any(isnan,threshold) == false
+            @assert minimum(threshold) >= 0
+        end
 
         rankLoss = relu.(posEmbedDist - negEmbedDist + threshold)
+        mseLoss = ((posEmbedDist - y12).^2 + (negEmbedDist - y13).^2 + (PosNegEmbedDist - y23).^2)
 
-        mseLoss = ((posEmbedDist - y12).^2 + (negEmbedDist - y13).^2 + (PosNegEmbedDist - y23).^2) 
-        @assert minimum(mseLoss) >= 0
+        if Constants.DEBUG
+            @assert minimum(mseLoss) >= 0
+        end
 
         rankLoss = lReg * rankLoss
         mseLoss = rReg * sqrt.(mseLoss)
-        # println("rank loss %s, mse loss %s", mseLoss)
-        # @printf("Rank loss %s, MSE loss %s", mean(rankLoss), mean(mseLoss))
+
         return mean(rankLoss), mean(mseLoss), mean(rankLoss + mseLoss)
     end
 end

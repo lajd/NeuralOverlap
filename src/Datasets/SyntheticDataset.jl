@@ -199,7 +199,6 @@ module Dataset
 
             # Reshape as (-1, 1, N)
             for s in ["Xacr", "Xpos", "Xneg"]
-
                 batch[s] = formatOneHotSequenceArray(batch[s])
             end
 

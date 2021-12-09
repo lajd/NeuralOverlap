@@ -1,6 +1,8 @@
 module Constants
     using Flux
 
+    DEBUG = false
+
     # Datasets
     ALPHABET = ['A';'T';'C';'G']
 
@@ -23,6 +25,18 @@ module Constants
     FC_ACTIVATION = relu
     CONV_ACTIVATION = identity
     LR = 0.1
+
+    # Loss scaling
+    L0rank = 0.1
+    L0emb = 1.
+    _N_LOSS_STEPS = Int32(NUM_EPOCHS / 5)
+    LOSS_STEPS_DICT = Dict(
+        _N_LOSS_STEPS * 0 => (0., 10.),
+        _N_LOSS_STEPS * 1 => (10., 10.),
+        _N_LOSS_STEPS * 2 => (10., 1.),
+        _N_LOSS_STEPS * 3 => (5., 0.1),
+        _N_LOSS_STEPS * 4 => (1., 0.01),
+    )
 
     # NUM_TRAINING_EXAMPLES = 1000
     # NUM_EVAL_EXAMPLES = 500

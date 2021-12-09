@@ -261,5 +261,6 @@ module Utils
 
         return meanAbsError, maxAbsError, minAbsError, totalAbsError
     end
+
     anynan(x) = any(y -> any(isnan, y), x)
 end
