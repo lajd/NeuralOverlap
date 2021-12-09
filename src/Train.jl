@@ -48,7 +48,7 @@ end
 
 # Create the model save directory
 mkpath(Constants.MODEL_SAVE_DIR)
-
+mkpath(Constants.PLOTS_SAVE_DIR)
 
 function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=100, evalEvery=5)
     local trainingLossArray = []
@@ -128,7 +128,10 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
                 evaluateTime = @elapsed begin
                     @printf("-----Evaluation dataset-----\n")
                     trainmode!(model, false)
-                    meanAbsEvalError, maxAbsEvalError, minAbsEvalError, totalAbsEvalError = Utils.evaluateModel(evalDataHelper, model, Constants.MAX_STRING_LENGTH)
+                    meanAbsEvalError, maxAbsEvalError, minAbsEvalError, totalAbsEvalError = Utils.evaluateModel(
+                        evalDataHelper, model, Constants.MAX_STRING_LENGTH,
+                        plotsSavePath=Constants.PLOTS_SAVE_DIR, identifier=epoch
+                    )
                 end
                 @printf("Evaluation time %s\n", evaluateTime)
 
@@ -141,7 +144,7 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
                         xlabel="Epoch",
                         ylabel="Loss"
                     )
-                    savefig(fig, string("training_losses.png"))
+                    savefig(fig, joinpath(Constants.PLOTS_SAVE_DIR, "training_losses.png"))
                 end
 
                 # Save the model, removing old ones
@@ -175,8 +178,8 @@ embeddingModel = Model.getModel(Constants.MAX_STRING_LENGTH, Constants.EMBEDDING
 
 # Training dataset
 trainDatasetHelper = Dataset.TrainingDataset(Constants.NUM_TRAINING_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
-Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000)
-Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap())
+Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=Constants.PLOTS_SAVE_DIR)
+Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=Constants.PLOTS_SAVE_DIR)
 
 # Evaluation dataset
 evalDatasetHelper = Dataset.TrainingDataset(Constants.NUM_EVAL_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)

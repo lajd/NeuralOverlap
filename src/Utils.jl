@@ -156,7 +156,7 @@ module Utils
         return recall
     end
 
-    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=128, method="l2", numNN=100, estErrorN=1000)
+    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=128, method="l2", numNN=100, estErrorN=1000, plotsSavePath=".", identifier="")
         idSeqDataMap = datasetHelper.getIdSeqDataMap()
         distanceMatrix = datasetHelper.getDistanceMatrix()
         numSeqs = length(idSeqDataMap)
@@ -242,7 +242,7 @@ module Utils
                 x = x[perm]
                 y = collect(values(recallDict[topNKey]))[perm]
                 fig = plot(x, y, title=topNKey, xlabel="K-value", ylabel="Recall", label=["Recall"])
-                savefig(fig, string("testRecall", "_", topNKey, ".png"))
+                savefig(fig, joinpath(plotsSavePath, string(topNKey, "_", identifier,  ".png")))
             end
         end
 

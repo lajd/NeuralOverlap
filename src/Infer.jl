@@ -75,7 +75,7 @@ evalDatasetHelper = Dataset.TrainingDataset(Constants.NUM_EVAL_EXAMPLES, Constan
 # evalDatasetHelper.shuffleTripletBatch!(evalDataset)
 # evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, 1)
 
-Utils.evaluateModel(evalDatasetHelper, embeddingModel, Constants.MAX_STRING_LENGTH, method=Constants.DISTANCE_METHOD)
+Utils.evaluateModel(evalDatasetHelper, embeddingModel, Constants.MAX_STRING_LENGTH, method=Constants.DISTANCE_METHOD, plotsSavePath=Constants.PLOTS_SAVE_DIR)
 
 
 # Utils.evaluateModel(evalDatasetHelper, embeddingModel, Constants.MAX_STRING_LENGTH; bsize=128, method="l2", numNN=100, estErrorN=1000)

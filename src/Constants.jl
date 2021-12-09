@@ -64,4 +64,6 @@ module Constants
     EXPERIMENT_DIR = joinpath("data/experiments", EXPERIMENT_NAME)
     MODEL_SAVE_DIR = joinpath(EXPERIMENT_DIR, "saved_models")
     DATASET_SAVE_PATH = joinpath(EXPERIMENT_DIR, "dataset.jld")
+    PLOTS_SAVE_DIR = joinpath(EXPERIMENT_DIR, "saved_plots")
+    CONSTANTS_SAVE_PATH = joinpath(EXPERIMENT_DIR, "constants.txt")
 end

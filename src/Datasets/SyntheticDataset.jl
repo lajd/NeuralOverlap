@@ -288,22 +288,22 @@ module Dataset
         return embeddings
     end
 
-    function plotSequenceDistances(distanceMat; maxSamples = 2000)
+    function plotSequenceDistances(distanceMat; maxSamples = 2000, plotsSavePath=".")
         n = size(distanceMat)[1]
         maxSamples = min(maxSamples, n)
         randSamplesX = a = sample(1:n, maxSamples, replace = false)
         randSamplesY = a = sample(1:n, maxSamples, replace = false)
         dists = [distanceMat[i, j] for (i, j) in  zip(randSamplesX, randSamplesY)]        
         fig = plot(scatter(1:maxSamples, dists), title="True distances")
-        savefig(fig, "true_sequence_distances.png")
+        savefig(fig, joinpath(plotsSavePath, "true_sequence_distances.png"))
     end
 
-    function plotKNNDistances(distanceMat, idSeqDataMap)
+    function plotKNNDistances(distanceMat, idSeqDataMap; plotsSavePath=".")
         refID, refData = rand(idSeqDataMap)
         nns = refData["k100NN"]
         distances = [distanceMat[refID, j] for j in nns]
         fig = plot(scatter(1:length(distances), distances), title="Random KNN distances")
-        savefig(fig, "knn_distances.png")
+        savefig(fig, joinpath(plotsSavePath, "knn_distances.png"))
     end
 
 end
