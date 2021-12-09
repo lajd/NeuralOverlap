@@ -132,34 +132,33 @@ function trainingLoop!(model, trainDataHelper, evalDataHelper, opt; numEpochs=10
                             evalDataHelper, model, Constants.MAX_STRING_LENGTH,
                             plotsSavePath=Constants.PLOTS_SAVE_DIR, identifier=epoch
                         )
+                        if length(trainingLossArray) > 2
+                            fig = plot(
+                                1:length(trainingLossArray),
+                                [trainingLossArray, rankLossArray, embeddingLossArray],
+                                label=["training loss" "rank loss" "embedding loss"],
+            #                     yaxis=:log,
+                                xlabel="Epoch",
+                                ylabel="Loss"
+                            )
+                            savefig(fig, joinpath(Constants.PLOTS_SAVE_DIR, "training_losses.png"))
+                        end
+
+                        # Save the model, removing old ones
+                        if epoch > 1 && meanAbsEvalError < bestMeanAbsEvalError
+                            SaveModelTime = @elapsed begin
+                                @printf("Saving new model...\n")
+                                bestMeanAbsEvalError = meanAbsEvalError
+                                modelName = string("edit_cnn_epoch", "epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError, Constants.MODEL_SAVE_SUFFIX)
+                                Utils.removeOldModels(Constants.MODEL_SAVE_DIR, Constants.MODEL_SAVE_SUFFIX)
+                                cpuModel = model |> cpu
+                                @save joinpath(Constants.MODEL_SAVE_DIR, modelName) cpuModel
+                            end
+                            @printf("Save moodel time %s\n", SaveModelTime)
+                        end
                     end
                 end
                 @printf("Evaluation time %s\n", evaluateTime)
-
-                if length(trainingLossArray) > 2
-                    fig = plot(
-                        1:length(trainingLossArray),
-                        [trainingLossArray, rankLossArray, embeddingLossArray],
-                        label=["training loss" "rank loss" "embedding loss"],
-    #                     yaxis=:log,
-                        xlabel="Epoch",
-                        ylabel="Loss"
-                    )
-                    savefig(fig, joinpath(Constants.PLOTS_SAVE_DIR, "training_losses.png"))
-                end
-
-                # Save the model, removing old ones
-                if epoch > 1 && meanAbsEvalError < bestMeanAbsEvalError
-                    SaveModelTime = @elapsed begin
-                        @printf("Saving new model...\n")
-                        bestMeanAbsEvalError = meanAbsEvalError
-                        modelName = string("edit_cnn_epoch", "epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError, Constants.MODEL_SAVE_SUFFIX)
-                        Utils.removeOldModels(Constants.MODEL_SAVE_DIR, Constants.MODEL_SAVE_SUFFIX)
-                        cpuModel = model |> cpu
-                        @save joinpath(Constants.MODEL_SAVE_DIR, modelName) cpuModel
-                    end
-                    @printf("Save moodel time %s\n", SaveModelTime)
-                end
             end
         end
     end
