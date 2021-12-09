@@ -108,7 +108,6 @@ module Utils
             if any(isnan.(elements))
                 @error("max %s, min %s", max_, min_)
                 @error("Encountered NAN value in gs with max %s, min %s", maxGS, minGS)
-                @error("Reads are %s", reads)
                 break
             end
             push!(maxGSArr, max_)

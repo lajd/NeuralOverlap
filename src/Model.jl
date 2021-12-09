@@ -1,5 +1,3 @@
-
-include("./Constants.jl")
 include("./Utils.jl")
 
 module Model
@@ -16,12 +14,9 @@ module Model
     using Printf
 
     using ..Utils
-    using ..Constants
-
 
     try
         using CUDA
-        CUDA.allowscalar(Constants.ALLOW_SCALAR)
         global DEVICE = Flux.gpu
         global ArrayType = Union{Vector{Float32}, Matrix{Float32}, CuArray{Float32}, Array{Float32}}
     catch e
@@ -151,11 +146,11 @@ module Model
     end
 
 
-    function getModel(maxSeqLen::Int64, embDim::Int64; numIntermediateConvLayers::Int64=0,
+    function getModel(maxSeqLen::Int64, alphabetDim, embDim::Int64; numIntermediateConvLayers::Int64=0,
         numFCLayers::Int64=1, FCAct=relu, ConvAct=relu, k=3, c=8, withBatchnorm=false,
         withInputBatchnorm=false, withDropout=false, poolingMethod="max", poolKernel=2)::Chain
 
-        l_in = maxSeqLen * Constants.ALPHABET_DIM
+        l_in = maxSeqLen * alphabetDim
         flatSize = getFlatSize(l_in, numIntermediateConvLayers + 1, c=c, convK=k, poolK=poolKernel)  # Add one for input
         f1 = getFlatSize(l_in, 1, c=c, convK=k, poolK=poolKernel)  # one for input
 
@@ -171,24 +166,25 @@ module Model
         return embeddingModel
     end
 
-    function formatOneHotSeq(x)
+    function formatOneHotSeq(x, bsize)
         x = permutedims(x, (3, 2, 1))
         # View as 1d
-        x = reshape(x, :, 1, Constants.BSIZE)
+        x = reshape(x, :, 1, bsize)
         return x
     end
 
 
     function formatOneHotSequences(XSeq)
+        bsize = lenght(XSeq)
         output = []
         for x in XSeq
-            x = formatOneHotSeq(x)
+            x = formatOneHotSeq(x, bsize)
             push!(output, x)
         end
         return output
     end
 
-    function tripletLoss(Xacr::ArrayType, Xpos::ArrayType,
+    function tripletLoss(args, Xacr::ArrayType, Xpos::ArrayType,
          Xneg::ArrayType, y12::ArrayType, y13::ArrayType,
          y23::ArrayType; embeddingModel, lReg::Float64=1.0, rReg::Float64=0.1)
 
@@ -198,19 +194,19 @@ module Model
         Embpos = embeddingModel(Xpos)
         Embneg = embeddingModel(Xneg)
 
-        if Constants.DEBUG
+        if args.DEBUG
             @assert any(isnan,Embacr) == false
             @assert any(isnan,Embpos) == false
             @assert any(isnan,Embneg) == false
         end
 
-        posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, Constants.DISTANCE_METHOD, dims=1) |> DEVICE  # 1D dist vector of size bsize
-        negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, Constants.DISTANCE_METHOD, dims=1) |> DEVICE
-        PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, Constants.DISTANCE_METHOD, dims=1) |> DEVICE
+        posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, args.DISTANCE_METHOD, dims=1) |> DEVICE  # 1D dist vector of size bsize
+        negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, args.DISTANCE_METHOD, dims=1) |> DEVICE
+        PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, args.DISTANCE_METHOD, dims=1) |> DEVICE
 
         threshold = y13 - y12  # Positive
 
-        if Constants.DEBUG
+        if args.DEBUG
             @assert any(isnan,posEmbedDist) == false
             @assert any(isnan,negEmbedDist) == false
             @assert any(isnan,PosNegEmbedDist) == false
@@ -221,7 +217,7 @@ module Model
         rankLoss = relu.(posEmbedDist - negEmbedDist + threshold)
         mseLoss = ((posEmbedDist - y12).^2 + (negEmbedDist - y13).^2 + (PosNegEmbedDist - y23).^2)
 
-        if Constants.DEBUG
+        if args.DEBUG
             @assert minimum(mseLoss) >= 0
         end
 

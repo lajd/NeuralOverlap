@@ -91,12 +91,12 @@ end
 @testset "Model tests" begin
    
     @testset "load model no error" begin
-        model = Model.getModel(30, 64, 3120, 128, numConvLayers=1, numFCLayers=1)
+        model = Model.getModel(30, 4, 64, 3120, 128, numConvLayers=1, numFCLayers=1)
     end
 
     @testset "Test single layer model" begin
         flatSize = Constants._getFlatSize(30, 8, 26, 1)
-        model = Model.getModel(30, 64, flatSize, 128, numConvLayers=1, numFCLayers=1)
+        model = Model.getModel(30, 4, 64, flatSize, 128, numConvLayers=1, numFCLayers=1)
         layers = model.layers
 
         x = convert.(Float32, zeros(64, 26, 30))
@@ -141,7 +141,7 @@ end
 
     @testset "Test multi layer model" begin
         flatSize = Constants._getFlatSize(30, 8, 26, 3)
-        model = Model.getModel(30, 64, flatSize, 128, numConvLayers=3, numFCLayers=2)
+        model = Model.getModel(30, 4, 64, flatSize, 128, numConvLayers=3, numFCLayers=2)
         layers = model.layers
 
         x = convert.(Float32, zeros(64, 26, 30))
