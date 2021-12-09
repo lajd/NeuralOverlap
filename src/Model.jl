@@ -153,7 +153,7 @@ module Model
 
     function getModel(maxSeqLen::Int64, embDim::Int64; numIntermediateConvLayers::Int64=0,
         numFCLayers::Int64=1, FCAct=relu, ConvAct=relu, k=3, c=8, withBatchnorm=false,
-        withDropout=false, poolingMethod="max", poolKernel=2)::Chain
+        withInputBatchnorm=false, withDropout=false, poolingMethod="max", poolKernel=2)::Chain
 
         l_in = maxSeqLen * Constants.ALPHABET_DIM
         flatSize = getFlatSize(l_in, numIntermediateConvLayers + 1, c=c, convK=k, poolK=poolKernel)  # Add one for input
@@ -161,7 +161,7 @@ module Model
 
         embeddingModel = Chain(
             # Input conv
-            _getInputConvLayer(activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel)...,
+            _getInputConvLayer(activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, withInputBatchnorm=withInputBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel)...,
             # Intermediate convs
             _getIntermediateConvLayers(f1, numIntermediateConvLayers, activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel)...,
             flatten,

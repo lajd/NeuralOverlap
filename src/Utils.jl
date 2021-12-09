@@ -35,13 +35,11 @@ module Utils
         seqId = 1
         for refSeq in seqArr
             sequenceIDMap[refSeq] = seqId
-
             for (j, compSeq) in enumerate(seqArr)
                 d = hamming(refSeq, compSeq)
                 distanceMatrix[seqId, j] = d
             end
             seqId += 1
-
         end
         return sequenceIDMap, distanceMatrix
     end
@@ -252,15 +250,12 @@ module Utils
         maxAbsError = maximum(absErrorArray)
         minAbsError = minimum(absErrorArray)
         totalAbsError = sum(absErrorArray)
-
         @printf("Mean Absolute Error is %s \n", round(meanAbsError, digits=4))
         @printf("Max Absolute Error is %s \n", round(maxAbsError, digits=4))
         @printf("Min abs error is %s \n", round(minAbsError, digits=4))
         @printf("Total abs error is %s \n", round(totalAbsError, digits=4))
         @printf("Number of triplets compared %s \n", estErrorN)
-
         return meanAbsError, maxAbsError, minAbsError, totalAbsError
     end
-
     anynan(x) = any(y -> any(isnan, y), x)
 end

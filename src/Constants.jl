@@ -19,6 +19,7 @@ module Constants
 
     NUM_EPOCHS = 1000
 
+    WITH_INPUT_BATCHNORM = false
     WITH_BATCHNORM = true
     WITH_DROPOUT = true
 
@@ -40,13 +41,13 @@ module Constants
 
     # NUM_TRAINING_EXAMPLES = 1000
     # NUM_EVAL_EXAMPLES = 500
-    NUM_TRAINING_EXAMPLES = 1000
+    NUM_TRAINING_EXAMPLES = 5000
     NUM_EVAL_EXAMPLES = 150
     NUM_BATCHES = 512
 
     # Pooling
-    POOLING_METHOD="mean"
-    POOL_KERNEL=2
+    POOLING_METHOD= "mean"
+    POOL_KERNEL= 2
 
     # Model
     OUT_CHANNELS = 8

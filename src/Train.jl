@@ -171,9 +171,10 @@ opt = ADAM(Constants.LR, (0.9, 0.999))
 # Create the model
 embeddingModel = Model.getModel(Constants.MAX_STRING_LENGTH, Constants.EMBEDDING_DIM, 
  numIntermediateConvLayers=Constants.NUM_INTERMEDIATE_CONV_LAYERS,
-  numFCLayers=Constants.NUM_FC_LAYERS, FCAct=Constants.FC_ACTIVATION, ConvAct=Constants.CONV_ACTIVATION,
- withBatchnorm=Constants.WITH_BATCHNORM, withDropout=Constants.WITH_DROPOUT,
- c=Constants.OUT_CHANNELS,k=Constants.KERNEL_SIZE, poolingMethod=Constants.POOLING_METHOD
+ numFCLayers=Constants.NUM_FC_LAYERS, FCAct=Constants.FC_ACTIVATION, ConvAct=Constants.CONV_ACTIVATION,
+ withBatchnorm=Constants.WITH_BATCHNORM, withInputBatchnorm=Constants.WITH_INPUT_BATCHNORM,
+ withDropout=Constants.WITH_DROPOUT, c=Constants.OUT_CHANNELS, k=Constants.KERNEL_SIZE,
+ poolingMethod=Constants.POOLING_METHOD
  ) |> DEVICE
 
 # Training dataset
