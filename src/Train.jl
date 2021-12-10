@@ -51,6 +51,11 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
     local rankLossArray = []
     local embeddingLossArray = []
 
+    local meanAbsEvalErrorArray = []
+    local maxAbsEvalErrorArray = []
+    local minAbsEvalErrorArray = []
+    local totalAbsEvalErrorArray = []
+
     bestMeanAbsEvalError = 1e6
 
     ps = params(model)
@@ -127,6 +132,12 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                             evalDataHelper, model, args.MAX_STRING_LENGTH,
                             plotsSavePath=args.PLOTS_SAVE_DIR, identifier=epoch
                         )
+
+                        push!(meanAbsEvalErrorArray, meanAbsEvalError)
+                        push!(maxAbsEvalErrorArray, maxAbsEvalError)
+                        push!(minAbsEvalErrorArray, minAbsEvalError)
+                        push!(totalAbsEvalErrorArray, totalAbsEvalError)
+
                         if length(trainingLossArray) > 2
                             fig = plot(
                                 1:length(trainingLossArray),
@@ -137,6 +148,18 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                                 ylabel="Loss"
                             )
                             savefig(fig, joinpath(args.PLOTS_SAVE_DIR, "training_losses.png"))
+                        end
+
+                        if length(meanAbsEvalErrorArray) > 2
+                            fig = plot(
+                                1:length(meanAbsEvalErrorArray),
+                                [meanAbsEvalErrorArray, maxAbsEvalErrorArray, minAbsEvalErrorArray],
+                                label=["Val Mean Abs Error" "Val Max Abs Error" "Val Min Abs Error"],
+            #                     yaxis=:log,
+                                xlabel="Epoch",
+                                ylabel="Error"
+                            )
+                            savefig(fig, joinpath(args.PLOTS_SAVE_DIR, "validation_error.png"))
                         end
 
                         # Save the model, removing old ones
@@ -161,96 +184,32 @@ end
 
 
 ExperimentArgs = [
-#     ExperimentParams.ExperimentArgs(
-#         NUM_EPOCHS=50,
-#         NUM_BATCHES=128,
-#     ),
-#     ExperimentParams.ExperimentArgs(
-#         NUM_EPOCHS=50,
-#         NUM_BATCHES=128,
-#         NUM_INTERMEDIATE_CONV_LAYERS=4,
-#         CONV_ACTIVATION=relu,
-#         WITH_INPUT_BATCHNORM=false,
-#         WITH_BATCHNORM=false,
-#         WITH_DROPOUT=false,
-#         LR=0.001,
-#     ),
-#     ExperimentParams.ExperimentArgs(
-#         NUM_EPOCHS=50,
-#         NUM_BATCHES=128,
-#         NUM_INTERMEDIATE_CONV_LAYERS=2,
-#         CONV_ACTIVATION=relu,
-#         WITH_INPUT_BATCHNORM=false,
-#         WITH_BATCHNORM=false,
-#         WITH_DROPOUT=false,
-#         NUM_FC_LAYERS=1,
-#         LR=0.001,
-#     ),
-#     ExperimentParams.ExperimentArgs(
-#         NUM_EPOCHS=50,
-#         NUM_BATCHES=128,
-#         NUM_INTERMEDIATE_CONV_LAYERS=3,
-#         CONV_ACTIVATION = identity,
-#         WITH_INPUT_BATCHNORM=false,
-#         WITH_BATCHNORM=true,
-#         WITH_DROPOUT=true,
-#         NUM_FC_LAYERS=1,
-#         LR=0.5
-#     ),
-#         ExperimentParams.ExperimentArgs(
-#         NUM_EPOCHS=50,
-#         NUM_BATCHES=128,
-#         NUM_INTERMEDIATE_CONV_LAYERS=4,
-#         CONV_ACTIVATION = identity,
-#         WITH_INPUT_BATCHNORM=false,
-#         WITH_BATCHNORM=true,
-#         WITH_DROPOUT=true,
-#         NUM_FC_LAYERS=2,
-#         LR=0.5
-#     ),
-    ###########################
     ExperimentParams.ExperimentArgs(
         NUM_EPOCHS=50,
         NUM_BATCHES=128,
         NUM_INTERMEDIATE_CONV_LAYERS=4,
-        CONV_ACTIVATION = identity,
+        CONV_ACTIVATION=relu,
         WITH_INPUT_BATCHNORM=false,
-        WITH_BATCHNORM=true,
-        WITH_DROPOUT=true,
-        NUM_FC_LAYERS=2,
-        LR = 0.1,
-        L0rank = 1.,
-        L0emb = 0.1,
-        LOSS_STEPS_DICT = Dict(),
-        NUM_TRAINING_EXAMPLES=10000,
-        NUM_EVAL_EXAMPLES = 1000,
-    ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=50,
-        NUM_BATCHES=128,
-        NUM_INTERMEDIATE_CONV_LAYERS=4,
-        CONV_ACTIVATION = identity,
-        WITH_INPUT_BATCHNORM=false,
-        WITH_BATCHNORM=true,
-        WITH_DROPOUT=true,
-        NUM_FC_LAYERS=2,
-        LR = 0.001,
-        L0rank = 1.,
-        L0emb = 0.1,
-        LOSS_STEPS_DICT = Dict(),
-        NUM_TRAINING_EXAMPLES=10000,
-        NUM_EVAL_EXAMPLES = 1000,
-    ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=50,
-        NUM_BATCHES=128,
-        NUM_INTERMEDIATE_CONV_LAYERS=3,
-        CONV_ACTIVATION =relu,
-        WITH_INPUT_BATCHNORM=true,
         WITH_BATCHNORM=true,
         WITH_DROPOUT=true,
         NUM_FC_LAYERS=1,
-        LR = 0.1,
+        LR = 0.01,
+        L0rank = 1.,
+        L0emb = 0.1,
+        LOSS_STEPS_DICT = Dict(),
+        NUM_TRAINING_EXAMPLES=10000,
+        NUM_EVAL_EXAMPLES = 1000,
+    ),
+        ExperimentParams.ExperimentArgs(
+        NUM_EPOCHS=50,
+        NUM_BATCHES=128,
+        NUM_INTERMEDIATE_CONV_LAYERS=4,
+        CONV_ACTIVATION=identity,
+        WITH_INPUT_BATCHNORM=false,
+        WITH_BATCHNORM=true,
+        WITH_DROPOUT=true,
+        NUM_FC_LAYERS=1,
+        LR = 0.01,
         L0rank = 1.,
         L0emb = 0.1,
         LOSS_STEPS_DICT = Dict(),
@@ -264,6 +223,7 @@ for args in ExperimentArgs
         # Create the model save directory
         mkpath(args.MODEL_SAVE_DIR)
         mkpath(args.PLOTS_SAVE_DIR)
+        ExperimentParams.dumpArgs(args, joinpath(args.EXPERIMENT_DIR, "args.txt"))
 
         # opt = Flux.Optimise.Optimiser(ClipValue(1e-3), ADAM(0.001, (0.9, 0.999)))
         opt = ADAM(args.LR, (0.9, 0.999))
@@ -278,12 +238,18 @@ for args in ExperimentArgs
          ) |> DEVICE
 
         # Training dataset
-        trainDatasetHelper = Dataset.TrainingDataset(args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+        trainDatasetHelper = Dataset.TrainingDataset(args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH,
+         args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
+         Utils.pairwiseHammingDistance, args.KNN_TRIPLET_SAMPLING_METHOD)
         Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR)
         Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR)
+        batchDict = trainDatasetHelper.getTripletBatch(args.BSIZE)
+        Dataset.plotTripletBatchDistances(batchDict, args.PLOTS_SAVE_DIR)
 
         # Evaluation dataset
-        evalDatasetHelper = Dataset.TrainingDataset(args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+        evalDatasetHelper = Dataset.TrainingDataset(args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH,
+         args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
+         Utils.pairwiseHammingDistance, args.KNN_TRIPLET_SAMPLING_METHOD)
 
         trainingLoop!(args, embeddingModel, trainDatasetHelper, evalDatasetHelper, opt, numEpochs=args.NUM_EPOCHS, evalEvery=args.EVAL_EVERY)
     catch e

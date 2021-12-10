@@ -20,6 +20,7 @@ module ExperimentParams
         ALPHABET_DIM = length(ALPHABET_SYMBOLS)
         MIN_STRING_LENGTH = 128
         MAX_STRING_LENGTH = 128
+        KNN_TRIPLET_SAMPLING_METHOD="ranked"  # ranked, uniform
 
         ###############
         # Model Arch
@@ -76,7 +77,8 @@ module ExperimentParams
         EXPERIMENT_NAME = stringFromParameters(
             [NUM_INTERMEDIATE_CONV_LAYERS, NUM_FC_LAYERS, FC_ACTIVATION, CONV_ACTIVATION,
              WITH_INPUT_BATCHNORM, WITH_BATCHNORM, WITH_DROPOUT, POOLING_METHOD, POOL_KERNEL,
-             OUT_CHANNELS, KERNEL_SIZE, EMBEDDING_DIM, DISTANCE_METHOD, ]
+             OUT_CHANNELS, KERNEL_SIZE, EMBEDDING_DIM, DISTANCE_METHOD, NUM_TRAINING_EXAMPLES,
+             NUM_EVAL_EXAMPLES, NUM_BATCHES]
         )
         EXPERIMENT_DIR = joinpath("data/experiments", EXPERIMENT_NAME)
         MODEL_SAVE_DIR = joinpath(EXPERIMENT_DIR, "saved_models")
@@ -85,4 +87,9 @@ module ExperimentParams
         CONSTANTS_SAVE_PATH = joinpath(EXPERIMENT_DIR, "constants.txt")
     end
 
+    function dumpArgs(args, savePath)
+        open(savePath, "a") do f
+            write(f, string(args))
+        end
+    end
 end

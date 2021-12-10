@@ -13,12 +13,13 @@ module Dataset
     using BenchmarkTools
     using Plots
     using Distributions
+    using Printf
 
     using ..Utils
 
     function generateSequences(numSequences::Int64, minSequenceLength::Int64,
          maxSequenceLength::Int64, alphabet::Vector{Char},
-         ratioOfRandom=0.1, similarityMin=0.4, similarityMaxProb=0.95)::Array{String}
+         ratioOfRandom=0.05, similarityMin=0.4, similarityMaxProb=0.95)::Array{String}
 
         # It's very likely for a sequence to be similar to another sequence, but 
         # most sequences are dissimilar to each other
@@ -48,6 +49,7 @@ module Dataset
             s = join(s)
             push!(sequenceSet, s)
         end
+
         sequenceSet = union(sequenceSet, coreSequenceSet)
         return collect(sequenceSet)
     end
@@ -61,20 +63,26 @@ module Dataset
         return oneHotSequences
     end
 
-    function TrainingDataset(numSequences::Int64, minSequenceLength::Int64, maxSequenceLength::Int64, alphabet::Vector{Char}, alphabetSymbols::Vector{Symbol}, pairwiseDistanceFun)
+    function TrainingDataset(numSequences::Int64, minSequenceLength::Int64, maxSequenceLength::Int64,
+         alphabet::Vector{Char}, alphabetSymbols::Vector{Symbol},
+         pairwiseDistanceFun::Function, weightFunctionMethod::String)
         @info("Creating dataset... with %s sequences", numSequences)
         @time begin
             generatedSequences = Dataset.generateSequences(numSequences, minSequenceLength, maxSequenceLength, alphabet)
             oneHotEncodedSequences = Dataset.oneHotSequences(generatedSequences, maxSequenceLength, alphabetSymbols)
     
             seqIdMap, distanceMatrix = pairwiseDistanceFun(generatedSequences)
-    
+
             # Normalize distance matrix by maximum length
             distanceMatrix = distanceMatrix / maxSequenceLength
     
             idSeqDataMap = Dict()
     
             numNN = min(numSequences, 100)
+
+            # Weights
+            @printf("Using sampling method %s", weightFunctionMethod)
+            rankedPositiveSamplingWeights = ProbabilityWeights(Array(range(numNN, 1,step=-1) / sum(range(numNN, 1, step=-1))))
 
             numCollisions = 0
             for (seq, id) in seqIdMap
@@ -109,16 +117,21 @@ module Dataset
                 # TODO: For negative sample, sample randomly?
                 a_nns = idSeqDataMap[ida]["k100NN"]
 
-                # Note: Here we don't allow the same string to be compared with itself
-                i = sample(a_nns[1:end])
-                j = sample(a_nns[1:end])
+                if weightFunctionMethod == "uniform"
+                    i = sample(a_nns)
+                elseif weightFunctionMethod == "ranked"
+                    i = sample(a_nns, rankedPositiveSamplingWeights)
+                end
 
+                j = sample(a_nns[1:end])
                 dai = distanceMatrix[ida, i]
                 daj = distanceMatrix[ida, j]
 
                 # TODO: Assumes distance is symmetric
                 dpn = distanceMatrix[i, j]
-                
+
+                # Note: Here we don't allow the same string to be compared with itself
+                # Obtain sampling weight function
                 if any([isapprox(dai, 0), isapprox(daj, 0), isapprox(dpn, 0)])
                     numCollisions += 1
                     continue
@@ -301,12 +314,21 @@ module Dataset
         savefig(fig, joinpath(plotsSavePath, "true_sequence_distances.png"))
     end
 
-    function plotKNNDistances(distanceMat, idSeqDataMap; plotsSavePath=".")
-        refID, refData = rand(idSeqDataMap)
-        nns = refData["k100NN"]
-        distances = [distanceMat[refID, j] for j in nns]
-        fig = plot(scatter(1:length(distances), distances), title="Random KNN distances")
-        savefig(fig, joinpath(plotsSavePath, "knn_distances.png"))
+    function plotKNNDistances(distanceMat, idSeqDataMap; plotsSavePath=".", num_samples=10)
+        for i in 1:num_samples
+            refID, refData = rand(idSeqDataMap)
+            nns = refData["k100NN"]
+            distances = [distanceMat[refID, j] for j in nns]
+            fig = plot(scatter(1:length(distances), distances), title="Random KNN distances")
+            savefig(fig, joinpath(plotsSavePath, string("knn_distances", "_", string(i), ".png")))
+        end
     end
 
+    function plotTripletBatchDistances(tripletBatchDict, plotsSavePath=".")
+        Dpos = tripletBatchDict["Dpos"]
+        Dneg = tripletBatchDict["Dneg"]
+        Dposneg = tripletBatchDict["DPosNeg"]
+        fig = plot(scatter(1:length(Dpos), [Dpos, Dneg, Dposneg], label=["Dpos" "Dneg" "Dposneg"], title="Triplet batch distances"))
+        savefig(fig, joinpath(plotsSavePath, string("triplet_batch_distances", ".png")))
+    end
 end
