@@ -161,60 +161,132 @@ end
 
 
 ExperimentArgs = [
+#     ExperimentParams.ExperimentArgs(
+#         NUM_EPOCHS=50,
+#         NUM_BATCHES=128,
+#     ),
+#     ExperimentParams.ExperimentArgs(
+#         NUM_EPOCHS=50,
+#         NUM_BATCHES=128,
+#         NUM_INTERMEDIATE_CONV_LAYERS=4,
+#         CONV_ACTIVATION=relu,
+#         WITH_INPUT_BATCHNORM=false,
+#         WITH_BATCHNORM=false,
+#         WITH_DROPOUT=false,
+#         LR=0.001,
+#     ),
+#     ExperimentParams.ExperimentArgs(
+#         NUM_EPOCHS=50,
+#         NUM_BATCHES=128,
+#         NUM_INTERMEDIATE_CONV_LAYERS=2,
+#         CONV_ACTIVATION=relu,
+#         WITH_INPUT_BATCHNORM=false,
+#         WITH_BATCHNORM=false,
+#         WITH_DROPOUT=false,
+#         NUM_FC_LAYERS=1,
+#         LR=0.001,
+#     ),
+#     ExperimentParams.ExperimentArgs(
+#         NUM_EPOCHS=50,
+#         NUM_BATCHES=128,
+#         NUM_INTERMEDIATE_CONV_LAYERS=3,
+#         CONV_ACTIVATION = identity,
+#         WITH_INPUT_BATCHNORM=false,
+#         WITH_BATCHNORM=true,
+#         WITH_DROPOUT=true,
+#         NUM_FC_LAYERS=1,
+#         LR=0.5
+#     ),
+#         ExperimentParams.ExperimentArgs(
+#         NUM_EPOCHS=50,
+#         NUM_BATCHES=128,
+#         NUM_INTERMEDIATE_CONV_LAYERS=4,
+#         CONV_ACTIVATION = identity,
+#         WITH_INPUT_BATCHNORM=false,
+#         WITH_BATCHNORM=true,
+#         WITH_DROPOUT=true,
+#         NUM_FC_LAYERS=2,
+#         LR=0.5
+#     ),
+    ###########################
     ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=5,
-        NUM_BATCHES=2,
-    ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=5,
-        NUM_BATCHES=2,
-        NUM_INTERMEDIATE_CONV_LAYERS = 2,
-        NUM_FC_LAYERS=1,
-
-    ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=5,
-        NUM_BATCHES=2,
-        NUM_INTERMEDIATE_CONV_LAYERS=2,
-        NUM_FC_LAYERS=1,
-        CONV_ACTIVATION=identity
-    ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=5,
-        NUM_BATCHES=2,
-        NUM_INTERMEDIATE_CONV_LAYERS=2,
-        NUM_FC_LAYERS=1,
+        NUM_EPOCHS=50,
+        NUM_BATCHES=128,
+        NUM_INTERMEDIATE_CONV_LAYERS=4,
         CONV_ACTIVATION = identity,
+        WITH_INPUT_BATCHNORM=false,
+        WITH_BATCHNORM=true,
+        WITH_DROPOUT=true,
+        NUM_FC_LAYERS=2,
+        LR = 0.1,
+        L0rank = 1.,
+        L0emb = 0.1,
+        LOSS_STEPS_DICT = Dict(),
+        NUM_TRAINING_EXAMPLES=10000,
+        NUM_EVAL_EXAMPLES = 1000,
+    ),
+    ExperimentParams.ExperimentArgs(
+        NUM_EPOCHS=50,
+        NUM_BATCHES=128,
+        NUM_INTERMEDIATE_CONV_LAYERS=4,
+        CONV_ACTIVATION = identity,
+        WITH_INPUT_BATCHNORM=false,
+        WITH_BATCHNORM=true,
+        WITH_DROPOUT=true,
+        NUM_FC_LAYERS=2,
+        LR = 0.001,
+        L0rank = 1.,
+        L0emb = 0.1,
+        LOSS_STEPS_DICT = Dict(),
+        NUM_TRAINING_EXAMPLES=10000,
+        NUM_EVAL_EXAMPLES = 1000,
+    ),
+    ExperimentParams.ExperimentArgs(
+        NUM_EPOCHS=50,
+        NUM_BATCHES=128,
+        NUM_INTERMEDIATE_CONV_LAYERS=3,
+        CONV_ACTIVATION =relu,
         WITH_INPUT_BATCHNORM=true,
-        WITH_BATCHNORM=false,
-        WITH_DROPOUT=false,
+        WITH_BATCHNORM=true,
+        WITH_DROPOUT=true,
+        NUM_FC_LAYERS=1,
+        LR = 0.1,
+        L0rank = 1.,
+        L0emb = 0.1,
+        LOSS_STEPS_DICT = Dict(),
+        NUM_TRAINING_EXAMPLES=10000,
+        NUM_EVAL_EXAMPLES = 1000,
     ),
 ]
 
 for args in ExperimentArgs
-    # Create the model save directory
-    mkpath(args.MODEL_SAVE_DIR)
-    mkpath(args.PLOTS_SAVE_DIR)
+    try
+        # Create the model save directory
+        mkpath(args.MODEL_SAVE_DIR)
+        mkpath(args.PLOTS_SAVE_DIR)
 
-    # opt = Flux.Optimise.Optimiser(ClipValue(1e-3), ADAM(0.001, (0.9, 0.999)))
-    opt = ADAM(args.LR, (0.9, 0.999))
+        # opt = Flux.Optimise.Optimiser(ClipValue(1e-3), ADAM(0.001, (0.9, 0.999)))
+        opt = ADAM(args.LR, (0.9, 0.999))
 
-    # Create the model
-    embeddingModel = Model.getModel(args.MAX_STRING_LENGTH, 4, args.EMBEDDING_DIM,
-     numIntermediateConvLayers=args.NUM_INTERMEDIATE_CONV_LAYERS,
-     numFCLayers=args.NUM_FC_LAYERS, FCAct=args.FC_ACTIVATION, ConvAct=args.CONV_ACTIVATION,
-     withBatchnorm=args.WITH_BATCHNORM, withInputBatchnorm=args.WITH_INPUT_BATCHNORM,
-     withDropout=args.WITH_DROPOUT, c=args.OUT_CHANNELS, k=args.KERNEL_SIZE,
-     poolingMethod=args.POOLING_METHOD
-     ) |> DEVICE
+        # Create the model
+        embeddingModel = Model.getModel(args.MAX_STRING_LENGTH, 4, args.EMBEDDING_DIM,
+         numIntermediateConvLayers=args.NUM_INTERMEDIATE_CONV_LAYERS,
+         numFCLayers=args.NUM_FC_LAYERS, FCAct=args.FC_ACTIVATION, ConvAct=args.CONV_ACTIVATION,
+         withBatchnorm=args.WITH_BATCHNORM, withInputBatchnorm=args.WITH_INPUT_BATCHNORM,
+         withDropout=args.WITH_DROPOUT, c=args.OUT_CHANNELS, k=args.KERNEL_SIZE,
+         poolingMethod=args.POOLING_METHOD
+         ) |> DEVICE
 
-    # Training dataset
-    trainDatasetHelper = Dataset.TrainingDataset(args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
-    Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR)
-    Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR)
+        # Training dataset
+        trainDatasetHelper = Dataset.TrainingDataset(args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+        Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR)
+        Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR)
 
-    # Evaluation dataset
-    evalDatasetHelper = Dataset.TrainingDataset(args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+        # Evaluation dataset
+        evalDatasetHelper = Dataset.TrainingDataset(args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
 
-    trainingLoop!(args, embeddingModel, trainDatasetHelper, evalDatasetHelper, opt, numEpochs=args.NUM_EPOCHS, evalEvery=args.EVAL_EVERY)
+        trainingLoop!(args, embeddingModel, trainDatasetHelper, evalDatasetHelper, opt, numEpochs=args.NUM_EPOCHS, evalEvery=args.EVAL_EVERY)
+    catch e
+        @warn("Skipping experiment: ", e)
+    end
 end

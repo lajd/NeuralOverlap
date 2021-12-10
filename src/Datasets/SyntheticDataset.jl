@@ -24,16 +24,18 @@ module Dataset
         # most sequences are dissimilar to each other
 
         # First we populate the sequence set with random sequences
+        coreSequenceSet = Set()
         sequenceSet = Set()
 
+        # Core samples from which the rest are based off of
         for i in 1:Int(numSequences*ratioOfRandom)
             n = rand(minSequenceLength:maxSequenceLength)
-            push!(sequenceSet, randstring(alphabet, n))
+            push!(coreSequenceSet, randstring(alphabet, n))
         end
 
         while length(sequenceSet) < numSequences
             n = rand(minSequenceLength:maxSequenceLength)
-            ref = rand(sequenceSet)
+            ref = rand(coreSequenceSet)
             s = []
             r = rand(Uniform(similarityMin, similarityMaxProb), 1)[1]
             for char in ref
@@ -46,6 +48,7 @@ module Dataset
             s = join(s)
             push!(sequenceSet, s)
         end
+        sequenceSet = union(sequenceSet, coreSequenceSet)
         return collect(sequenceSet)
     end
 
