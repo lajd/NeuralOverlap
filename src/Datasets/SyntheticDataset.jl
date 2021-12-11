@@ -81,7 +81,7 @@ module Dataset
             numNN = min(numSequences, 100)
 
             # Weights
-            @printf("Using sampling method %s", weightFunctionMethod)
+            @printf("Using sampling method %sn", weightFunctionMethod)
             rankedPositiveSamplingWeights = ProbabilityWeights(Array(range(numNN, 1,step=-1) / sum(range(numNN, 1, step=-1))))
 
             numCollisions = 0
@@ -283,11 +283,13 @@ module Dataset
             return outputChunks
         end
 
-        function batchTuplesProducer(chnl, numBatches, bsize)
+        function batchTuplesProducer(chnl, numBatches, bsize, device)
             for i in 1:numBatches
                 batchDict = getTripletBatch(bsize)
                 batchTuple = batchToTuple(batchDict)
-                put!(chnl, batchTuple)
+                ids_and_reads = batchTuple[1:6]
+                tensorBatch = batchTuple[7:end] |> device
+                put!(chnl, (ids_and_reads, tensorBatch))
             end
         end
 

@@ -70,7 +70,7 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
     # Get initial scaling for epoch
     lReg, rReg = Model.getLossScaling(0, args.LOSS_STEPS_DICT, args.L0rank, args.L0emb)
 
-    maxChannelSize=10
+    maxChannelSize=1
 
     for epoch in 1:numEpochs
         local epochRankLoss = epochEmbeddingLoss = epochTrainingLoss = 0
@@ -82,12 +82,12 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
             @info("Starting epoch %s...\n", epoch)
             # Set to train mode
             trainmode!(model, true)
-            epochBatchChannel = Channel( (channel) -> trainDataHelper.batchTuplesProducer(channel, nbs, args.BSIZE), maxChannelSize)
-            for batchTuple in epochBatchChannel
-                timeSpentFetchingData += @elapsed begin
-                    ids_and_reads = batchTuple[1:6]
-                    tensorBatch = batchTuple[7:end] |> DEVICE
-                end
+            epochBatchChannel = Channel( (channel) -> trainDataHelper.batchTuplesProducer(channel, nbs, args.BSIZE, DEVICE), maxChannelSize)
+            for (ids_and_reads, tensorBatch) in epochBatchChannel
+#                 timeSpentFetchingData += @elapsed begin
+#                      = batchTuple[1:6]
+#                     tensorBatch = batchTuple[7:end] |> DEVICE
+#                 end
 
                 timeSpentForward += @elapsed begin
                     # lReg, rReg = Model.getLossScaling(epoch, regularizationSteps, lReg, rReg)

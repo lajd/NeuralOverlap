@@ -201,14 +201,14 @@ module Utils
         return recallDict
     end
 
-    function getPredictedDistanceMatrix(datasetHelper, idSeqDataMap, embeddingModel; bsize=256, method="l2")
+    function embedSequenceData(datasetHelper, idSeqDataMap, embeddingModel; bsize=128)
         Xarray = []
         for k in 1:length(idSeqDataMap)
             v = idSeqDataMap[k]
             push!(Xarray, v["oneHotSeq"])
         end
 
-        X = datasetHelper.formatOneHotSequenceArray(Xarray) |> DEVICE
+        X = datasetHelper.formatOneHotSequenceArray(Xarray)
 
         Earray = []
 
@@ -216,17 +216,22 @@ module Utils
         j = bsize
         n = size(X)[3]
         while j < n
-            push!(Earray, embeddingModel(X[1:end, 1:end, i:j]))
+            Xm=X[1:end, 1:end, i:j] |> DEVICE
+            push!(Earray, embeddingModel(Xm))
             i += bsize
             j += bsize
         end
-        push!(Earray, embeddingModel(X[1:end, 1:end, i:n]))
+        Xm = X[1:end, 1:end, i:n] |> DEVICE
+        push!(Earray, embeddingModel(Xm))
 
         E = hcat(Earray...)
-        @assert size(E)[2] == n
+        @assert size(E)[2] == length(idSeqDataMap)
+        return E
+    end
 
+    function getPredictedDistanceMatrix(E; method="l2")
+        n = length(E)
         predictedDistanceMatrix = convert.(Float32, zeros(n, n))
-
         # Get pairwise distance
         for refIdx in 1:n
             e1 = E[1:end, refIdx]
@@ -282,29 +287,45 @@ module Utils
 #         identifier = "test"
 #         plotsSavePath="."
 
-        # Obtain inferred/predicted distance matrix
-        predictedDistanceMatrix = getPredictedDistanceMatrix(
-            datasetHelper, idSeqDataMap, embeddingModel, bsize=bsize, method=method
-        )
+        timeEmbedSequences = @elapsed begin
+            Earray = embedSequenceData(
+                datasetHelper, idSeqDataMap, embeddingModel, bsize=bsize
+            )
+        end
 
-        # Obtain the recall dictionary for each T value, for each K value
-        recallDict = getTopTRecallAtK(
-            idSeqDataMap, distanceMatrix, predictedDistanceMatrix,
-            plotsSavePath=plotsSavePath, identifier=identifier, numNN=numNN,
-        )
+        timeGetPredictedDistanceMatrix = @elapsed begin
+            # Obtain inferred/predicted distance matrix
+            predictedDistanceMatrix = getPredictedDistanceMatrix(
+                Earray, method=method
+            )
+        end
 
-        # Obtain estimation error
-        meanAbsError, maxAbsError, minAbsError, totalAbsError = getEstimationError(
-            distanceMatrix, predictedDistanceMatrix,
-            maxStringLength, estErrorN=estErrorN,
-        )
+        timeGetRecallAtK = @elapsed begin
+            # Obtain the recall dictionary for each T value, for each K value
+            recallDict = getTopTRecallAtK(
+                idSeqDataMap, distanceMatrix, predictedDistanceMatrix,
+                plotsSavePath=plotsSavePath, identifier=identifier, numNN=numNN,
+            )
+        end
+
+        timeGetEstimationError = @elapsed begin
+            # Obtain estimation error
+            meanAbsError, maxAbsError, minAbsError, totalAbsError = getEstimationError(
+                distanceMatrix, predictedDistanceMatrix,
+                maxStringLength, estErrorN=estErrorN,
+            )
+        end
 
         # Log results
         @printf("Mean Absolute Error is %s \n", round(meanAbsError, digits=4))
         @printf("Max Absolute Error is %s \n", round(maxAbsError, digits=4))
         @printf("Min abs error is %s \n", round(minAbsError, digits=4))
         @printf("Total abs error is %s \n", round(totalAbsError, digits=4))
-        @printf("Number of triplets compared %s \n", estErrorN)
+        @printf("Number of triplets compared for error estimation %s \n", estErrorN)
+        @printf("Time to embed sequences: %s \n", timeEmbedSequences)
+        @printf("Time to compute pred distance matrix: %s \n", timeGetPredictedDistanceMatrix)
+        @printf("Time to get recall at K: %s \n", timeGetRecallAtK)
+        @printf("Time to get error estimation: %s \n", timeGetEstimationError)
         return meanAbsError, maxAbsError, minAbsError, totalAbsError, recallDict
     end
     anynan(x) = any(y -> any(isnan, y), x)
