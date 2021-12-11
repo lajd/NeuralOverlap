@@ -235,8 +235,8 @@ module Utils
         # Get pairwise distance
         for refIdx in 1:n
             e1 = E[1:end, refIdx]
-            refE = hcat([e1 for _ in 1:n]...)
-            compE = hcat([E[1:end, compIdx] for compIdx in 1:n]...)
+            refE = hcat([e1 for _ in 1:n]...) |> DEVICE
+            compE = hcat([E[1:end, compIdx] for compIdx in 1:n]...) |> DEVICE
             D = Utils.EmbeddingDistance(refE, compE, method, dims=1)
             predictedDistanceMatrix[refIdx, 1:end] = D
         end
@@ -288,16 +288,21 @@ module Utils
 #         plotsSavePath="."
 
         timeEmbedSequences = @elapsed begin
-            Earray = embedSequenceData(
+            Etensor = embedSequenceData(
                 datasetHelper, idSeqDataMap, embeddingModel, bsize=bsize
             )
         end
 
+        # Convert back to CPU
+        Etensor = Etensor |> cpu
+
+
         timeGetPredictedDistanceMatrix = @elapsed begin
             # Obtain inferred/predicted distance matrix
-            predictedDistanceMatrix = getPredictedDistanceMatrix(
-                Earray, method=method
-            )
+            predictedDistanceMatrix=pairwise(euclidean, Etensor)
+#             predictedDistanceMatrix = getPredictedDistanceMatrix(
+#                 Etensor, method=method
+#             )
         end
 
         timeGetRecallAtK = @elapsed begin
