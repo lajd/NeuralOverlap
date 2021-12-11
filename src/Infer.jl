@@ -38,7 +38,7 @@ catch e
 end
 
 
-EXPERIMENT_DIR="/home/jon/JuliaProjects/NeuralOverlap/data/experiments/2_1_relu_identity_false_true_true_mean_2_8_3_128_l2_10000_2000_128_2021-12-10T14:52:28.318"
+EXPERIMENT_DIR="/home/jon/JuliaProjects/NeuralOverlap/data/experiments/4_2_relu_identity_false_true_true_mean_2_8_3_128_l2_10000_2000_128_2021-12-10T22:56:20.800"
 
 args = JLD2.load(joinpath(EXPERIMENT_DIR, "args.jld2"))["args"]
 
@@ -76,8 +76,5 @@ embeddingModel = LoadModel(Utils.getBestModelPath(args.MODEL_SAVE_DIR, args.MODE
 trainmode!(embeddingModel, false)
 
 evalDatasetHelper = Dataset.TrainingDataset(args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance, args.KNN_TRIPLET_SAMPLING_METHOD)
-# evalDataset = evalDatasetHelper.getTripletBatch(100)
-# evalDatasetHelper.shuffleTripletBatch!(evalDataset)
-# evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, 1)
 
 meanAbsError, maxAbsError, minAbsError, totalAbsError, recallDict = Utils.evaluateModel(evalDatasetHelper, embeddingModel, args.MAX_STRING_LENGTH, method=args.DISTANCE_METHOD, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="inference")

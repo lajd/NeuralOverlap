@@ -69,6 +69,9 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
     nbs = args.NUM_BATCHES
     # Get initial scaling for epoch
     lReg, rReg = Model.getLossScaling(0, args.LOSS_STEPS_DICT, args.L0rank, args.L0emb)
+
+    maxChannelSize=10
+
     for epoch in 1:numEpochs
         local epochRankLoss = epochEmbeddingLoss = epochTrainingLoss = 0
         local timeSpentFetchingData = timeSpentForward = timeSpentBackward = 0
@@ -79,10 +82,9 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
             @info("Starting epoch %s...\n", epoch)
             # Set to train mode
             trainmode!(model, true)
-            for _ in 1:nbs
+            epochBatchChannel = Channel( (channel) -> trainDataHelper.batchTuplesProducer(channel, nbs, args.BSIZE), maxChannelSize)
+            for batchTuple in epochBatchChannel
                 timeSpentFetchingData += @elapsed begin
-                    batchDict = trainDataHelper.getTripletBatch(args.BSIZE)
-                    batchTuple = trainDataHelper.batchToTuple(batchDict)
                     ids_and_reads = batchTuple[1:6]
                     tensorBatch = batchTuple[7:end] |> DEVICE
                 end
@@ -199,44 +201,44 @@ ExperimentArgs = [
         L0rank = 1.,
         L0emb = 0.1,
 #         LOSS_STEPS_DICT = Dict(),
-        NUM_TRAINING_EXAMPLES=10000,
-        NUM_EVAL_EXAMPLES = 2000,
+        NUM_TRAINING_EXAMPLES=1000,
+        NUM_EVAL_EXAMPLES = 1000,
         KNN_TRIPLET_SAMPLING_METHOD="ranked"
     ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=100,
-        NUM_BATCHES=128,
-        NUM_INTERMEDIATE_CONV_LAYERS=4,
-        CONV_ACTIVATION=identity,
-        WITH_INPUT_BATCHNORM=false,
-        WITH_BATCHNORM=true,
-        WITH_DROPOUT=true,
-        NUM_FC_LAYERS=2,
-        LR = 0.01,
-        L0rank = 1.,
-        L0emb = 0.1,
-#         LOSS_STEPS_DICT = Dict(),
-        NUM_TRAINING_EXAMPLES=10000,
-        NUM_EVAL_EXAMPLES = 2000,
-        KNN_TRIPLET_SAMPLING_METHOD="ranked"
-    ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=100,
-        NUM_BATCHES=128,
-        NUM_INTERMEDIATE_CONV_LAYERS=2,
-        CONV_ACTIVATION=identity,
-        WITH_INPUT_BATCHNORM=false,
-        WITH_BATCHNORM=true,
-        WITH_DROPOUT=true,
-        NUM_FC_LAYERS=1,
-        LR = 0.01,
-        L0rank = 1.,
-        L0emb = 0.1,
-#         LOSS_STEPS_DICT = Dict(),
-        NUM_TRAINING_EXAMPLES=10000,
-        NUM_EVAL_EXAMPLES = 2000,
-        KNN_TRIPLET_SAMPLING_METHOD="ranked"
-    ),
+#     ExperimentParams.ExperimentArgs(
+#         NUM_EPOCHS=100,
+#         NUM_BATCHES=128,
+#         NUM_INTERMEDIATE_CONV_LAYERS=4,
+#         CONV_ACTIVATION=identity,
+#         WITH_INPUT_BATCHNORM=false,
+#         WITH_BATCHNORM=true,
+#         WITH_DROPOUT=true,
+#         NUM_FC_LAYERS=2,
+#         LR = 0.01,
+#         L0rank = 1.,
+#         L0emb = 0.1,
+# #         LOSS_STEPS_DICT = Dict(),
+#         NUM_TRAINING_EXAMPLES=10000,
+#         NUM_EVAL_EXAMPLES = 2000,
+#         KNN_TRIPLET_SAMPLING_METHOD="ranked"
+#     ),
+#     ExperimentParams.ExperimentArgs(
+#         NUM_EPOCHS=100,
+#         NUM_BATCHES=128,
+#         NUM_INTERMEDIATE_CONV_LAYERS=2,
+#         CONV_ACTIVATION=identity,
+#         WITH_INPUT_BATCHNORM=false,
+#         WITH_BATCHNORM=true,
+#         WITH_DROPOUT=true,
+#         NUM_FC_LAYERS=1,
+#         LR = 0.01,
+#         L0rank = 1.,
+#         L0emb = 0.1,
+# #         LOSS_STEPS_DICT = Dict(),
+#         NUM_TRAINING_EXAMPLES=10000,
+#         NUM_EVAL_EXAMPLES = 2000,
+#         KNN_TRIPLET_SAMPLING_METHOD="ranked"
+#     ),
 ]
 
 for args in ExperimentArgs

@@ -267,23 +267,20 @@ module Utils
     function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=512, method="l2", numNN=100, estErrorN=1000, plotsSavePath=".", identifier="")
         idSeqDataMap = datasetHelper.getIdSeqDataMap()
         distanceMatrix = datasetHelper.getDistanceMatrix()
-
-        # Truncate
-        for (k, _) in idSeqDataMap
-            if k > 100
-                delete!(idSeqDataMap, k)
-            end
-        end
-
         numSeqs = length(idSeqDataMap)
-        distanceMatrix = distanceMatrix[1:100, 1:100]
 
-        identifier = "test"
-        plotsSavePath="."
-
-
-
-
+#         # Uncomment for testing
+#         # Truncate
+#         for (k, _) in idSeqDataMap
+#             if k > 100
+#                 delete!(idSeqDataMap, k)
+#             end
+#         end
+#
+#         distanceMatrix = distanceMatrix[1:100, 1:100]
+#
+#         identifier = "test"
+#         plotsSavePath="."
 
         # Obtain inferred/predicted distance matrix
         predictedDistanceMatrix = getPredictedDistanceMatrix(

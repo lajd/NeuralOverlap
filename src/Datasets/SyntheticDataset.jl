@@ -283,9 +283,17 @@ module Dataset
             return outputChunks
         end
 
+        function batchTuplesProducer(chnl, numBatches, bsize)
+            for i in 1:numBatches
+                batchDict = getTripletBatch(bsize)
+                batchTuple = batchToTuple(batchDict)
+                put!(chnl, batchTuple)
+            end
+        end
+
         ()->(numSeqs;getDistanceMatrix;getSeqIdMap;getIdSeqDataMap;getDistance;getTripletDict;
         getTripletBatch;numCollisions;shuffleTripletBatch!;extractBatches;batchToTuple;
-        formatOneHotSequenceArray;getNNs)
+        formatOneHotSequenceArray;getNNs;batchTuplesProducer)
     end
     
 
