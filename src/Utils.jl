@@ -229,20 +229,6 @@ module Utils
         return E
     end
 
-    function getPredictedDistanceMatrix(E; method="l2")
-        n = size(E)[2]
-        predictedDistanceMatrix = convert.(Float32, zeros(n, n))
-        # Get pairwise distance
-        for refIdx in 1:n
-            e1 = E[1:end, refIdx]
-            refE = hcat([e1 for _ in 1:n]...) |> DEVICE
-            compE = hcat([E[1:end, compIdx] for compIdx in 1:n]...) |> DEVICE
-            D = Utils.EmbeddingDistance(refE, compE, method, dims=1)
-            predictedDistanceMatrix[refIdx, 1:end] = D
-        end
-        return predictedDistanceMatrix
-    end
-    
     function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000)
         n = size(distanceMatrix)[1]
         # Get average estimation error
@@ -274,19 +260,6 @@ module Utils
         distanceMatrix = datasetHelper.getDistanceMatrix()
         numSeqs = length(idSeqDataMap)
 
-#         # Uncomment for testing
-#         # Truncate
-#         for (k, _) in idSeqDataMap
-#             if k > 100
-#                 delete!(idSeqDataMap, k)
-#             end
-#         end
-#
-#         distanceMatrix = distanceMatrix[1:100, 1:100]
-#
-#         identifier = "test"
-#         plotsSavePath="."
-
         timeEmbedSequences = @elapsed begin
             Etensor = embedSequenceData(
                 datasetHelper, idSeqDataMap, embeddingModel, bsize=bsize
@@ -300,9 +273,6 @@ module Utils
         timeGetPredictedDistanceMatrix = @elapsed begin
             # Obtain inferred/predicted distance matrix
             predictedDistanceMatrix=pairwise(euclidean, Etensor)
-#             predictedDistanceMatrix = getPredictedDistanceMatrix(
-#                 Etensor, method=method
-#             )
         end
 
         timeGetRecallAtK = @elapsed begin
