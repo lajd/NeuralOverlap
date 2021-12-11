@@ -1,6 +1,7 @@
 module ExperimentParams
     using Flux
     using Parameters
+    using Dates
 
     function stringFromParameters(parameters)
         s = []
@@ -67,7 +68,7 @@ module ExperimentParams
         )
 
         NUM_TRAINING_EXAMPLES = 1000
-        NUM_EVAL_EXAMPLES = 150
+        NUM_EVAL_EXAMPLES = 1000
         NUM_BATCHES = 512
 
         ################
@@ -78,7 +79,7 @@ module ExperimentParams
             [NUM_INTERMEDIATE_CONV_LAYERS, NUM_FC_LAYERS, FC_ACTIVATION, CONV_ACTIVATION,
              WITH_INPUT_BATCHNORM, WITH_BATCHNORM, WITH_DROPOUT, POOLING_METHOD, POOL_KERNEL,
              OUT_CHANNELS, KERNEL_SIZE, EMBEDDING_DIM, DISTANCE_METHOD, NUM_TRAINING_EXAMPLES,
-             NUM_EVAL_EXAMPLES, NUM_BATCHES]
+             NUM_EVAL_EXAMPLES, NUM_BATCHES, now()]
         )
         EXPERIMENT_DIR = joinpath("data/experiments", EXPERIMENT_NAME)
         MODEL_SAVE_DIR = joinpath(EXPERIMENT_DIR, "saved_models")

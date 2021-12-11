@@ -1,10 +1,10 @@
-include("./src/Constants.jl")
+include("./src/ExperimentParams.jl")
 include("./src/Utils.jl")
 include("./src/Datasets/SyntheticDataset.jl")
 include("./src/Model.jl")
 
 
-# include("./Constants.jl")
+# include("./args.jl")
 # include("./Utils.jl")
 # include("./Datasets/SyntheticDataset.jl")
 # include("./Model.jl")
@@ -23,20 +23,25 @@ using LinearAlgebra
 using Zygote
 using Zygote: gradient, @ignore
 using BSON: @load
-using JLD
+using JLD2
 
 using .Dataset
-using .Constants
+using .ExperimentParams
 using .Model
 using .Utils
 
 try
     using CUDA
-    CUDA.allowscalar(Constants.ALLOW_SCALAR)
     global DEVICE = Flux.gpu
 catch e
     global DEVICE = Flux.cpu
 end
+
+
+EXPERIMENT_DIR="/home/jon/JuliaProjects/NeuralOverlap/data/experiments/2_1_relu_identity_false_true_true_mean_2_8_3_128_l2_10000_2000_128_2021-12-10T14:52:28.318"
+
+args = JLD2.load(joinpath(EXPERIMENT_DIR, "args.jld2"))["args"]
+
 
 function LoadModel(modelPath:: String)
     @info "Loading model"
@@ -48,7 +53,7 @@ end
 
 function Infer(s1, s2, embeddingModel)
     sequenceBatch = [s1, s2]
-    oneHotBatch = Dataset.oneHotBatchSequences(sequenceBatch, Constants.MAX_STRING_LENGTH, Constants.BSIZE, Constants.ALPHABET_SYMBOLS)
+    oneHotBatch = Dataset.oneHotBatchSequences(sequenceBatch, args.MAX_STRING_LENGTH, args.BSIZE, args.ALPHABET_SYMBOLS)
 
 
     X, = Model.formatOneHotSequences((oneHotBatch,)) 
@@ -60,70 +65,19 @@ function Infer(s1, s2, embeddingModel)
     E1 = sequenceEmbeddings[1:end, 1]
     E2 = sequenceEmbeddings[1:end, 2]
 
-    D12 = Utils.EmbeddingDistance(E1, E2, Constants.DISTANCE_METHOD, dims=1) |> DEVICE  # 1D dist vector of size bsize
+    D12 = Utils.EmbeddingDistance(E1, E2, args.DISTANCE_METHOD, dims=1) |> DEVICE  # 1D dist vector of size bsize
 
-    predictedEditDistance = Constants.MAX_STRING_LENGTH * D12
+    predictedEditDistance = args.MAX_STRING_LENGTH * D12
     return D12, predictedEditDistance
 end
 
 
-embeddingModel = LoadModel(Utils.getBestModelPath(Constants.MODEL_SAVE_DIR, Constants.MODEL_SAVE_SUFFIX))
+embeddingModel = LoadModel(Utils.getBestModelPath(args.MODEL_SAVE_DIR, args.MODEL_SAVE_SUFFIX)) |> DEVICE
 trainmode!(embeddingModel, false)
 
-evalDatasetHelper = Dataset.TrainingDataset(Constants.NUM_EVAL_EXAMPLES, Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+evalDatasetHelper = Dataset.TrainingDataset(args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance, args.KNN_TRIPLET_SAMPLING_METHOD)
 # evalDataset = evalDatasetHelper.getTripletBatch(100)
 # evalDatasetHelper.shuffleTripletBatch!(evalDataset)
 # evalDatasetBatches = evalDatasetHelper.extractBatches(evalDataset, 1)
 
-Utils.evaluateModel(evalDatasetHelper, embeddingModel, Constants.MAX_STRING_LENGTH, method=Constants.DISTANCE_METHOD, plotsSavePath=Constants.PLOTS_SAVE_DIR)
-
-
-# Utils.evaluateModel(evalDatasetHelper, embeddingModel, Constants.MAX_STRING_LENGTH; bsize=128, method="l2", numNN=100, estErrorN=1000)
-
-# totalMSE, averageMSEPerTriplet, averageAbsError, maxAbsError, numTriplets = evaluateModel(evalDataset, embeddingModel)
-
-
-# # dataset = Dataset.TrainingDataset(Int(Constants.NUM_TRAINING_EXAMPLES*0.3), Constants.MAX_STRING_LENGTH, Constants.MAX_STRING_LENGTH, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
-# # datasetBatches = [dataset.getTripletBatch(Constants.BSIZE) for _ in 1:50]
-
-
-# s1 = Dataset.randstring(Constants.ALPHABET, Constants.MAX_STRING_LENGTH)
-
-# s2 = s1
-
-
-# function complement(char)
-#     char = Symbol(char)
-#     if char == Symbol("A")
-#         return "T"
-#     elseif char == Symbol("T")
-#         return "A"
-#     elseif char == Symbol("C")
-#         return "G"
-#     elseif char == Symbol("G")
-#         return "C"
-#     end
-# end
-
-# function reverseComplement(seq)
-#     revComp = ""
-#     for char in seq
-#         revComp = string(revComp, complement(char))
-#     end
-#     return revComp
-# end
-
-
-# s3 = reverseComplement(s1)
-
-# dist12 = Infer(s1, s2, embeddingModel)
-# dist13 = Infer(s1, s3, embeddingModel)
-# dist23 = Infer(s1, s3, embeddingModel)
-
-# @info(dist12, dist13, dist23)
-
-# # rawSequenceBatch = [R1, R2]
-
-# # oneHotBatch = Dataset.oneHotBatchSequences(rawSequenceBatch, MAX_STRING_LENGTH, BSIZE)
-
-# # sequenceEmbeddings = embeddingModel(oneHotBatch)[1:length(rawSequenceBatch), :]
+meanAbsError, maxAbsError, minAbsError, totalAbsError, recallDict = Utils.evaluateModel(evalDatasetHelper, embeddingModel, args.MAX_STRING_LENGTH, method=args.DISTANCE_METHOD, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="inference")

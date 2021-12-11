@@ -89,7 +89,7 @@ module Dataset
                 idSeqDataMap[id] = Dict(
                     "seq" => seq,
                     "oneHotSeq" => oneHotEncodedSequences[id],
-                    "k100NN" => sortperm(distanceMatrix[id, 1:end])[2:numNN + 1]  # Don't compare example to itself
+                    "k100NN" => sortperm(distanceMatrix[id, 1:end])[1:numNN]  # Don't compare example to itself
                 )
             end
     
@@ -123,7 +123,9 @@ module Dataset
                     i = sample(a_nns, rankedPositiveSamplingWeights)
                 end
 
-                j = sample(a_nns[1:end])
+                # We don't allow sequences to be compared with themselves
+                startIndex = 2
+                j = sample(a_nns[startIndex:end])
                 dai = distanceMatrix[ida, i]
                 daj = distanceMatrix[ida, j]
 

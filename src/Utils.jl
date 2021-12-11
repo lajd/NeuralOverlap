@@ -32,14 +32,12 @@ module Utils
         distanceMatrix = zeros(n, n)
         sequenceIDMap = Dict()
 
-        seqId = 1
-        for refSeq in seqArr
-            sequenceIDMap[refSeq] = seqId
+        for (i, refSeq) in enumerate(seqArr)
+            sequenceIDMap[refSeq] = i
             for (j, compSeq) in enumerate(seqArr)
                 d = hamming(refSeq, compSeq)
-                distanceMatrix[seqId, j] = d
+                distanceMatrix[i, j] = d
             end
-            seqId += 1
         end
         return sequenceIDMap, distanceMatrix
     end
@@ -153,13 +151,58 @@ module Utils
         return recall
     end
 
-    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=128, method="l2", numNN=100, estErrorN=1000, plotsSavePath=".", identifier="")
-        idSeqDataMap = datasetHelper.getIdSeqDataMap()
-        distanceMatrix = datasetHelper.getDistanceMatrix()
-        numSeqs = length(idSeqDataMap)
+    function getTopTRecallAtK(idSeqDataMap, distanceMatrix, predictedDistanceMatrix; plotsSavePath=".", identifier="", numNN=100, kStep=10)
+        # Get k-nns and recall
+        kValues = [k for k in range(1, numNN + 1, step=kStep)]
+        recallDict = Dict(
+            "top1Recall" => Dict([(k, 0.) for k in kValues]),
+            "top10Recall" => Dict([(k, 0.) for k in kValues]),
+            "top50Recall" => Dict([(k, 0.) for k in kValues]),
+            "top100Recall" => Dict([(k, 0.) for k in kValues])
+        )
 
+        # Get the total sums across all samples
+        # Note that we start at index 2 for both predicted/actual KNNs,
+        # so that the sequence is not compared with itself (skewing results, especially T=1)
+        startIndex = 2
+        for k in kValues
+            for id in 1:length(idSeqDataMap)
+                predicted_knns = sortperm(predictedDistanceMatrix[id, 1:end])[startIndex:numNN]
+                actual_knns = idSeqDataMap[id]["k100NN"][startIndex:end]
+                recallDict["top1Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=1, K=k)
+                recallDict["top10Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=10, K=k)
+                recallDict["top50Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=50, K=k)
+                recallDict["top100Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=100, K=k)
+            end
+        end
+
+        # Normalize by the number of samples
+        for (topNKey, sumRecallAtKDict) in recallDict
+            for (kValue, sumValue) in sumRecallAtKDict
+                recallDict[topNKey][kValue] = sumValue/length(idSeqDataMap)
+            end
+        end
+
+        # Create recall-item plots
+        for (topNRecallAtK, averageRecallAtKDict) in recallDict
+            kArray = []
+            recallAtKArray = []
+            # Sort the keys
+            sortedK = sort(collect(keys(averageRecallAtKDict)))
+            for k in sortedK
+                averageRecallAtK = averageRecallAtKDict[k]
+                push!(recallAtKArray, averageRecallAtK)
+                push!(kArray, k)
+            end
+            # Save a plot
+            fig = plot(kArray, recallAtKArray, title=topNRecallAtK, xlabel="K-value", ylabel="Recall", label=["Recall"])
+            savefig(fig, joinpath(plotsSavePath, string(topNRecallAtK, "_", identifier,  ".png")))
+        end
+        return recallDict
+    end
+
+    function getPredictedDistanceMatrix(datasetHelper, idSeqDataMap, embeddingModel; bsize=256, method="l2")
         Xarray = []
-
         for k in 1:length(idSeqDataMap)
             v = idSeqDataMap[k]
             push!(Xarray, v["oneHotSeq"])
@@ -180,11 +223,11 @@ module Utils
         push!(Earray, embeddingModel(X[1:end, 1:end, i:n]))
 
         E = hcat(Earray...)
+        @assert size(E)[2] == n
 
         predictedDistanceMatrix = convert.(Float32, zeros(n, n))
 
         # Get pairwise distance
-
         for refIdx in 1:n
             e1 = E[1:end, refIdx]
             refE = hcat([e1 for _ in 1:n]...)
@@ -192,69 +235,80 @@ module Utils
             D = Utils.EmbeddingDistance(refE, compE, method, dims=1)
             predictedDistanceMatrix[refIdx, 1:end] = D
         end
-
-        # Get k-nns and recall
-        recallDict = Dict(
-            "top1Recall" => DefaultDict(0.),
-            "top10Recall" => DefaultDict(0.),
-            "top50Recall" => DefaultDict(0.),
-            "top100Recall" => DefaultDict(0.),
-        )
-
-        for id in 1:n
-            # Don't include identical examples
-            predicted_knns = sortperm(predictedDistanceMatrix[id, 2:end])[1:numNN]
-            actual_knns = idSeqDataMap[id]["k100NN"][2:end]
-            for k in range(1, 101, step=10)
-                recallDict["top1Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=1, K=k)
-                recallDict["top10Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=10, K=k)
-                recallDict["top50Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=50, K=k)
-                recallDict["top100Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=100, K=k)
-            end
-        end
-
+        return predictedDistanceMatrix
+    end
+    
+    function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000)
+        n = size(distanceMatrix)[1]
         # Get average estimation error
         predDistanceArray = []
         trueDistanceArray = []
-        # distanceEstimationErrorArray = []
         absErrorArray = []
         for _ in 1:estErrorN
-            id1 = rand(1:numSeqs)
-            id2 = rand(1:numSeqs)
+            id1 = rand(1:n)
+            id2 = rand(1:n)
             trueDist = distanceMatrix[id1, id2] * maxStringLength
             predDist = predictedDistanceMatrix[id1, id2] * maxStringLength
+
             push!(predDistanceArray, predDist)
             push!(trueDistanceArray, trueDist)
-            # push!(distanceEstimationErrorArray, abs(predDist - trueDist)/trueDist * maxStringLength)
 
             absError = abs(predDist - trueDist)
             push!(absErrorArray, absError)
         end
-
-        for (topNKey, recallAtK) in recallDict
-            for (kValue, recallScoreSum) in recallAtK
-                recallDict[topNKey][kValue] = recallScoreSum/n
-                x = collect(keys(recallDict[topNKey]))
-                perm = sortperm(x)
-                x = x[perm]
-                y = collect(values(recallDict[topNKey]))[perm]
-                fig = plot(x, y, title=topNKey, xlabel="K-value", ylabel="Recall", label=["Recall"])
-                savefig(fig, joinpath(plotsSavePath, string(topNKey, "_", identifier,  ".png")))
-            end
-        end
-
-        # meanRecall = mean(recallArray)
-        # meanEstimationError = mean(distanceEstimationErrorArray)
         meanAbsError = mean(absErrorArray)
         maxAbsError = maximum(absErrorArray)
         minAbsError = minimum(absErrorArray)
         totalAbsError = sum(absErrorArray)
+        return meanAbsError, maxAbsError, minAbsError, totalAbsError
+    end
+
+
+    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=512, method="l2", numNN=100, estErrorN=1000, plotsSavePath=".", identifier="")
+        idSeqDataMap = datasetHelper.getIdSeqDataMap()
+        distanceMatrix = datasetHelper.getDistanceMatrix()
+
+        # Truncate
+        for (k, _) in idSeqDataMap
+            if k > 100
+                delete!(idSeqDataMap, k)
+            end
+        end
+
+        numSeqs = length(idSeqDataMap)
+        distanceMatrix = distanceMatrix[1:100, 1:100]
+
+        identifier = "test"
+        plotsSavePath="."
+
+
+
+
+
+        # Obtain inferred/predicted distance matrix
+        predictedDistanceMatrix = getPredictedDistanceMatrix(
+            datasetHelper, idSeqDataMap, embeddingModel, bsize=bsize, method=method
+        )
+
+        # Obtain the recall dictionary for each T value, for each K value
+        recallDict = getTopTRecallAtK(
+            idSeqDataMap, distanceMatrix, predictedDistanceMatrix,
+            plotsSavePath=plotsSavePath, identifier=identifier, numNN=numNN,
+        )
+
+        # Obtain estimation error
+        meanAbsError, maxAbsError, minAbsError, totalAbsError = getEstimationError(
+            distanceMatrix, predictedDistanceMatrix,
+            maxStringLength, estErrorN=estErrorN,
+        )
+
+        # Log results
         @printf("Mean Absolute Error is %s \n", round(meanAbsError, digits=4))
         @printf("Max Absolute Error is %s \n", round(maxAbsError, digits=4))
         @printf("Min abs error is %s \n", round(minAbsError, digits=4))
         @printf("Total abs error is %s \n", round(totalAbsError, digits=4))
         @printf("Number of triplets compared %s \n", estErrorN)
-        return meanAbsError, maxAbsError, minAbsError, totalAbsError
+        return meanAbsError, maxAbsError, minAbsError, totalAbsError, recallDict
     end
     anynan(x) = any(y -> any(isnan, y), x)
 end

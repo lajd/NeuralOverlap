@@ -28,6 +28,8 @@ using Plots
 
 using Printf
 using TimerOutputs
+using JLD2
+using FileIO
 
 using .Utils
 using .Dataset
@@ -140,7 +142,7 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
 
                         if length(trainingLossArray) > 2
                             fig = plot(
-                                1:length(trainingLossArray),
+                                [i * evalEvery for i in 1:length(trainingLossArray)],
                                 [trainingLossArray, rankLossArray, embeddingLossArray],
                                 label=["training loss" "rank loss" "embedding loss"],
             #                     yaxis=:log,
@@ -152,7 +154,7 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
 
                         if length(meanAbsEvalErrorArray) > 2
                             fig = plot(
-                                1:length(meanAbsEvalErrorArray),
+                                [i * evalEvery for i in 1:length(meanAbsEvalErrorArray)],
                                 [meanAbsEvalErrorArray, maxAbsEvalErrorArray, minAbsEvalErrorArray],
                                 label=["Val Mean Abs Error" "Val Max Abs Error" "Val Min Abs Error"],
             #                     yaxis=:log,
@@ -185,7 +187,7 @@ end
 
 ExperimentArgs = [
     ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=50,
+        NUM_EPOCHS=100,
         NUM_BATCHES=128,
         NUM_INTERMEDIATE_CONV_LAYERS=4,
         CONV_ACTIVATION=relu,
@@ -196,14 +198,32 @@ ExperimentArgs = [
         LR = 0.01,
         L0rank = 1.,
         L0emb = 0.1,
-        LOSS_STEPS_DICT = Dict(),
+#         LOSS_STEPS_DICT = Dict(),
         NUM_TRAINING_EXAMPLES=10000,
-        NUM_EVAL_EXAMPLES = 1000,
+        NUM_EVAL_EXAMPLES = 2000,
+        KNN_TRIPLET_SAMPLING_METHOD="ranked"
     ),
-        ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=50,
+    ExperimentParams.ExperimentArgs(
+        NUM_EPOCHS=100,
         NUM_BATCHES=128,
         NUM_INTERMEDIATE_CONV_LAYERS=4,
+        CONV_ACTIVATION=identity,
+        WITH_INPUT_BATCHNORM=false,
+        WITH_BATCHNORM=true,
+        WITH_DROPOUT=true,
+        NUM_FC_LAYERS=2,
+        LR = 0.01,
+        L0rank = 1.,
+        L0emb = 0.1,
+#         LOSS_STEPS_DICT = Dict(),
+        NUM_TRAINING_EXAMPLES=10000,
+        NUM_EVAL_EXAMPLES = 2000,
+        KNN_TRIPLET_SAMPLING_METHOD="ranked"
+    ),
+    ExperimentParams.ExperimentArgs(
+        NUM_EPOCHS=100,
+        NUM_BATCHES=128,
+        NUM_INTERMEDIATE_CONV_LAYERS=2,
         CONV_ACTIVATION=identity,
         WITH_INPUT_BATCHNORM=false,
         WITH_BATCHNORM=true,
@@ -212,9 +232,10 @@ ExperimentArgs = [
         LR = 0.01,
         L0rank = 1.,
         L0emb = 0.1,
-        LOSS_STEPS_DICT = Dict(),
+#         LOSS_STEPS_DICT = Dict(),
         NUM_TRAINING_EXAMPLES=10000,
-        NUM_EVAL_EXAMPLES = 1000,
+        NUM_EVAL_EXAMPLES = 2000,
+        KNN_TRIPLET_SAMPLING_METHOD="ranked"
     ),
 ]
 
@@ -224,6 +245,8 @@ for args in ExperimentArgs
         mkpath(args.MODEL_SAVE_DIR)
         mkpath(args.PLOTS_SAVE_DIR)
         ExperimentParams.dumpArgs(args, joinpath(args.EXPERIMENT_DIR, "args.txt"))
+        argsSaveFile = File(format"JLD2", joinpath(args.EXPERIMENT_DIR, "args.jld2"))
+        JLD2.save(argsSaveFile, "args", args)
 
         # opt = Flux.Optimise.Optimiser(ClipValue(1e-3), ADAM(0.001, (0.9, 0.999)))
         opt = ADAM(args.LR, (0.9, 0.999))
