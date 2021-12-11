@@ -28,18 +28,19 @@ module Utils
     end
 
     function pairwiseHammingDistance(seqArr::Array{String})
-        n = length(seqArr)
-        distanceMatrix = zeros(n, n)
-        sequenceIDMap = Dict()
-
-        for (i, refSeq) in enumerate(seqArr)
-            sequenceIDMap[refSeq] = i
-            for (j, compSeq) in enumerate(seqArr)
-                d = hamming(refSeq, compSeq)
-                distanceMatrix[i, j] = d
-            end
-        end
+        sequenceIDMap = Dict([(refSeq, i) for (i, refSeq) in enumerate(seqArr)])
+        distanceMatrix=pairwise(hamming, seqArr)
         return sequenceIDMap, distanceMatrix
+    end
+
+    function pairwiseDistance(X, method="l2")
+        if method == "l2"
+            return pairwise(euclidean, X)
+        elseif method == "cosine"
+            return pairwise(cosine_dist, X)
+        else
+            thow("Invalid method")
+        end
     end
 
     function getTrainingScore(modelName::String, modelSaveSuffix::String)::Float32
@@ -194,9 +195,10 @@ module Utils
                 push!(recallAtKArray, averageRecallAtK)
                 push!(kArray, k)
             end
-            # Save a plot
+            # Save a plot to a new directory
+            mkpath(joinpath(plotsSavePath, topNRecallAtK))
             fig = plot(kArray, recallAtKArray, title=topNRecallAtK, xlabel="K-value", ylabel="Recall", label=["Recall"])
-            savefig(fig, joinpath(plotsSavePath, string(topNRecallAtK, "_", identifier,  ".png")))
+            savefig(fig, joinpath(plotsSavePath, string("epoch", "_", identifier,  ".png")))
         end
         return recallDict
     end
@@ -272,7 +274,7 @@ module Utils
 
         timeGetPredictedDistanceMatrix = @elapsed begin
             # Obtain inferred/predicted distance matrix
-            predictedDistanceMatrix=pairwise(euclidean, Etensor)
+            predictedDistanceMatrix=pairwiseDistance(Etensor, method)
         end
 
         timeGetRecallAtK = @elapsed begin

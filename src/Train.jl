@@ -98,8 +98,8 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                 timeSpentBackward += @elapsed begin
                     if args.DEBUG
                         maxgs, mings, meangs = Utils.validateGradients(gs)
+                        push!(maxgsArray, maxgs); push!(mingsArray, mings);  push!(meangsArray, meangs)
                     end
-                    push!(maxgsArray, maxgs); push!(mingsArray, mings);  push!(meangsArray, meangs)
                     update!(opt, ps, gs)
 
                     if args.DEBUG
@@ -117,7 +117,10 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
             @printf("Average loss: %s, Average Rank loss: %s, Average Embedding loss %s\n", epochTrainingLoss/nbs, epochRankLoss/nbs, epochEmbeddingLoss/nbs)
             @printf("lReg: %s, rReg: %s\n", lReg, rReg)
             @printf("DataFetchTime %s, TimeForward %s, TimeBackward %s\n", round(timeSpentFetchingData, digits=2), round(timeSpentForward, digits=2), round(timeSpentBackward, digits=2))
-            @printf("maxGS: %s, minGS: %s, meanGS: %s\n", maximum(maxgsArray), minimum(mingsArray), mean(meangsArray))
+
+            if args.DEBUG
+                @printf("maxGS: %s, minGS: %s, meanGS: %s\n", maximum(maxgsArray), minimum(mingsArray), mean(meangsArray))
+            end
 
             push!(trainingLossArray, round(epochTrainingLoss/nbs, digits=8)); push!(rankLossArray, round(epochEmbeddingLoss/nbs, digits=8)); push!(embeddingLossArray, round(epochRankLoss/nbs, digits=8))
 
@@ -191,10 +194,10 @@ ExperimentArgs = [
         NUM_BATCHES=128,
         NUM_INTERMEDIATE_CONV_LAYERS=4,
         CONV_ACTIVATION=relu,
-        WITH_INPUT_BATCHNORM=false,
+        WITH_INPUT_BATCHNORM=true,
         WITH_BATCHNORM=true,
         WITH_DROPOUT=true,
-        NUM_FC_LAYERS=1,
+        NUM_FC_LAYERS=2,
         LR = 0.01,
         L0rank = 1.,
         L0emb = 0.1,
