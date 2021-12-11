@@ -230,7 +230,7 @@ module Utils
     end
 
     function getPredictedDistanceMatrix(E; method="l2")
-        n = length(E)
+        n = size(E)[2]
         predictedDistanceMatrix = convert.(Float32, zeros(n, n))
         # Get pairwise distance
         for refIdx in 1:n
