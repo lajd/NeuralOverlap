@@ -84,13 +84,7 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
             trainmode!(model, true)
             epochBatchChannel = Channel( (channel) -> trainDataHelper.batchTuplesProducer(channel, nbs, args.BSIZE, DEVICE), maxChannelSize)
             for (ids_and_reads, tensorBatch) in epochBatchChannel
-#                 timeSpentFetchingData += @elapsed begin
-#                      = batchTuple[1:6]
-#                     tensorBatch = batchTuple[7:end] |> DEVICE
-#                 end
-
                 timeSpentForward += @elapsed begin
-                    # lReg, rReg = Model.getLossScaling(epoch, regularizationSteps, lReg, rReg)
                     gs = gradient(ps) do
                         rankLoss, embeddingLoss, fullLoss = Model.tripletLoss(
                             args, tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg,
@@ -102,14 +96,18 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                 end
 
                 timeSpentBackward += @elapsed begin
-                    maxgs, mings, meangs = Utils.validateGradients(gs)
+                    if args.DEBUG
+                        maxgs, mings, meangs = Utils.validateGradients(gs)
+                    end
                     push!(maxgsArray, maxgs); push!(mingsArray, mings);  push!(meangsArray, meangs)
                     update!(opt, ps, gs)
 
-                    # Terminate on NaN
-                    if Utils.anynan(Flux.params(model))
-                        @error("Model params NaN after update")
-                        break
+                    if args.DEBUG
+                        # Terminate on NaN
+                        if Utils.anynan(Flux.params(model))
+                            @error("Model params NaN after update")
+                            break
+                        end
                     end
                 end
             end
