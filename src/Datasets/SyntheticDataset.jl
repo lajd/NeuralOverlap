@@ -332,7 +332,9 @@ module Dataset
             nns = refData["k100NN"]
             distances = [distanceMat[refID, j] for j in nns]
             fig = plot(scatter(1:length(distances), distances), title="Random KNN distances")
-            savefig(fig, joinpath(plotsSavePath, string("knn_distances", "_", string(i), ".png")))
+            saveDir = joinpath(plotsSavePath, "random_knn_distances")
+            mkpath(saveDir)
+            savefig(fig, joinpath(saveDir, string(string(i), ".png")))
         end
     end
 

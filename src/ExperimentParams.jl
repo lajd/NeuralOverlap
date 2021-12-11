@@ -53,6 +53,7 @@ module ExperimentParams
         NUM_EPOCHS = 50
         @assert NUM_EPOCHS > 0
         LR = 0.001
+        CLIP_VALUE = nothing
         # Evaluation
         EVAL_EVERY = 5
         # Loss scaling

@@ -200,29 +200,52 @@ ExperimentArgs = [
         NUM_FC_LAYERS=2,
         LR = 0.01,
         L0rank = 1.,
-        L0emb = 0.1,
+        L0emb = 0.5,
 #         LOSS_STEPS_DICT = Dict(),
-        NUM_TRAINING_EXAMPLES=1000,
+        DISTANCE_METHOD="cosine",
+        CLIP_VALUE=nothing,
+        NUM_TRAINING_EXAMPLES=5000,
         NUM_EVAL_EXAMPLES = 1000,
         KNN_TRIPLET_SAMPLING_METHOD="ranked"
     ),
-#     ExperimentParams.ExperimentArgs(
-#         NUM_EPOCHS=100,
-#         NUM_BATCHES=128,
-#         NUM_INTERMEDIATE_CONV_LAYERS=4,
-#         CONV_ACTIVATION=identity,
-#         WITH_INPUT_BATCHNORM=false,
-#         WITH_BATCHNORM=true,
-#         WITH_DROPOUT=true,
-#         NUM_FC_LAYERS=2,
-#         LR = 0.01,
-#         L0rank = 1.,
-#         L0emb = 0.1,
-# #         LOSS_STEPS_DICT = Dict(),
-#         NUM_TRAINING_EXAMPLES=10000,
-#         NUM_EVAL_EXAMPLES = 2000,
-#         KNN_TRIPLET_SAMPLING_METHOD="ranked"
-#     ),
+    ExperimentParams.ExperimentArgs(
+        NUM_EPOCHS=100,
+        NUM_BATCHES=128,
+        NUM_INTERMEDIATE_CONV_LAYERS=4,
+        CONV_ACTIVATION=relu,
+        WITH_INPUT_BATCHNORM=true,
+        WITH_BATCHNORM=true,
+        WITH_DROPOUT=true,
+        NUM_FC_LAYERS=2,
+        LR = 0.01,
+        L0rank = 1.,
+        L0emb = 0.5,
+#         LOSS_STEPS_DICT = Dict(),
+        DISTANCE_METHOD="l2",
+        CLIP_VALUE=nothing,
+        NUM_TRAINING_EXAMPLES=5000,
+        NUM_EVAL_EXAMPLES = 1000,
+        KNN_TRIPLET_SAMPLING_METHOD="uniform"
+    ),
+    ExperimentParams.ExperimentArgs(
+        NUM_EPOCHS=100,
+        NUM_BATCHES=128,
+        NUM_INTERMEDIATE_CONV_LAYERS=4,
+        CONV_ACTIVATION=relu,
+        WITH_INPUT_BATCHNORM=true,
+        WITH_BATCHNORM=true,
+        WITH_DROPOUT=true,
+        NUM_FC_LAYERS=2,
+        LR = 0.01,
+        L0rank = 1.,
+        L0emb = 0.5,
+#         LOSS_STEPS_DICT = Dict(),
+        DISTANCE_METHOD="l2",
+        CLIP_VALUE=1e-3,
+        NUM_TRAINING_EXAMPLES=5000,
+        NUM_EVAL_EXAMPLES = 1000,
+        KNN_TRIPLET_SAMPLING_METHOD="uniform"
+    ),
 #     ExperimentParams.ExperimentArgs(
 #         NUM_EPOCHS=100,
 #         NUM_BATCHES=128,
@@ -251,8 +274,11 @@ for args in ExperimentArgs
         argsSaveFile = File(format"JLD2", joinpath(args.EXPERIMENT_DIR, "args.jld2"))
         JLD2.save(argsSaveFile, "args", args)
 
-        # opt = Flux.Optimise.Optimiser(ClipValue(1e-3), ADAM(0.001, (0.9, 0.999)))
-        opt = ADAM(args.LR, (0.9, 0.999))
+        if isnothing(args.CLIP_VALUE)
+            opt = ADAM(args.LR, (0.9, 0.999))
+        else
+            opt = Flux.Optimise.Optimiser(ClipValue(args.CLIP_VALUE), ADAM(0.001, (0.9, 0.999)))
+        end
 
         # Create the model
         embeddingModel = Model.getModel(args.MAX_STRING_LENGTH, 4, args.EMBEDDING_DIM,

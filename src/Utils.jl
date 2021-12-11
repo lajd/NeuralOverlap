@@ -196,9 +196,10 @@ module Utils
                 push!(kArray, k)
             end
             # Save a plot to a new directory
-            mkpath(joinpath(plotsSavePath, topNRecallAtK))
+            saveDir = joinpath(plotsSavePath, topNRecallAtK)
+            mkpath(saveDir)
             fig = plot(kArray, recallAtKArray, title=topNRecallAtK, xlabel="K-value", ylabel="Recall", label=["Recall"])
-            savefig(fig, joinpath(plotsSavePath, string("epoch", "_", identifier,  ".png")))
+            savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
         end
         return recallDict
     end
