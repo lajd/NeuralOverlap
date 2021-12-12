@@ -21,7 +21,22 @@ module ExperimentParams
         ALPHABET_DIM = length(ALPHABET_SYMBOLS)
         MIN_STRING_LENGTH = 128
         MAX_STRING_LENGTH = 128
-        KNN_TRIPLET_SAMPLING_METHOD="ranked"  # ranked, uniform
+        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked"  # ranked, uniform
+
+        NUM_TRAINING_EXAMPLES = 10000
+        NUM_EVAL_EXAMPLES = 1000
+
+        # Synthetic dataset
+        USE_SYNTHETIC_DATA=true
+        RATIO_OF_RANDOM_SAMPLES=0.015
+        # e.g. 10k examples -> 250 random samples, ~40 sequences of similarity 0.6-0.95 each random sample
+        # Note that average similarity for 4 char sequences is 25%, so we want min similarity > 0.25.
+        # There will be many examples with ~0.25 similarity
+        SIMILARITY_MIN=0.3
+        SIMILARITY_MAX=0.95
+
+        # Simulated sequence dataset
+        USE_SEQUENCE_DATA=false
 
         ###############
         # Model Arch
@@ -52,8 +67,8 @@ module ExperimentParams
         BSIZE = 256
         NUM_EPOCHS = 50
         @assert NUM_EPOCHS > 0
-        LR = 0.001
-        CLIP_VALUE = nothing
+        LR = 0.01
+        GRADIENT_CLIP_VALUE = nothing
         # Evaluation
         EVAL_EVERY = 5
         # Loss scaling
@@ -67,10 +82,10 @@ module ExperimentParams
             _N_LOSS_STEPS * 3 => (5., 0.1),
             _N_LOSS_STEPS * 4 => (1., 0.01),
         )
-
-        NUM_TRAINING_EXAMPLES = 1000
-        NUM_EVAL_EXAMPLES = 1000
         NUM_BATCHES = 512
+        EXP_DECAY_EVERY_N_EPOCHS=5
+        EXP_DECAY_VALUE=0.5
+        EXP_DECAY_CLIP=1e-5
 
         ################
         # Experiment

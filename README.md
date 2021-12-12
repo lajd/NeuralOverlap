@@ -8,3 +8,13 @@ conda activate NeuralOverlap
 conda install -c conda-forge julia
 
 ````
+
+
+# Introduction
+
+# Motivation
+
+## Synthetic datasets and experiments
+
+- In order to achieve high recall-item scores, it's important to have a dataset such that the KNNs of an example cover
+  a (relatively) uniform range (similarity 0 -> 1).

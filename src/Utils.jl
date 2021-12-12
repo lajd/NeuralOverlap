@@ -232,16 +232,23 @@ module Utils
         return E
     end
 
-    function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000)
+    function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="")
         n = size(distanceMatrix)[1]
         # Get average estimation error
         predDistanceArray = []
         trueDistanceArray = []
         absErrorArray = []
+        estimationErrorArray = []
+
         for _ in 1:estErrorN
-            id1 = rand(1:n)
-            id2 = rand(1:n)
-            trueDist = distanceMatrix[id1, id2] * maxStringLength
+            local trueDist = 0
+            local id1 = id2 = nothing
+            while isapprox(trueDist, 0.) == true
+                id1 = rand(1:n)
+                id2 = rand(1:n)
+                trueDist = distanceMatrix[id1, id2] * maxStringLength
+            end
+
             predDist = predictedDistanceMatrix[id1, id2] * maxStringLength
 
             push!(predDistanceArray, predDist)
@@ -249,12 +256,23 @@ module Utils
 
             absError = abs(predDist - trueDist)
             push!(absErrorArray, absError)
+
+            estimationError = absError / trueDist
+            push!(estimationErrorArray, estimationError)
+
         end
         meanAbsError = mean(absErrorArray)
         maxAbsError = maximum(absErrorArray)
         minAbsError = minimum(absErrorArray)
         totalAbsError = sum(absErrorArray)
-        return meanAbsError, maxAbsError, minAbsError, totalAbsError
+        meanEstimationError = mean(estimationErrorArray)
+
+        # Plot the true/predicted estimation error
+        saveDir = joinpath(plotsSavePath, "true_vs_pred_edit_distance")
+        mkpath(saveDir)
+        fig = plot(scatter(trueDistanceArray, predDistanceArray, title="true_vs_pred_edit_distance", xlabel="true-edit-distance", ylabel="predicted-edit-distance"))
+        savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
+        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError
     end
 
 
@@ -288,9 +306,9 @@ module Utils
 
         timeGetEstimationError = @elapsed begin
             # Obtain estimation error
-            meanAbsError, maxAbsError, minAbsError, totalAbsError = getEstimationError(
-                distanceMatrix, predictedDistanceMatrix,
-                maxStringLength, estErrorN=estErrorN,
+            meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError = getEstimationError(
+                distanceMatrix, predictedDistanceMatrix, maxStringLength,
+                estErrorN=estErrorN, plotsSavePath=plotsSavePath, identifier=identifier
             )
         end
 
@@ -299,12 +317,13 @@ module Utils
         @printf("Max Absolute Error is %s \n", round(maxAbsError, digits=4))
         @printf("Min abs error is %s \n", round(minAbsError, digits=4))
         @printf("Total abs error is %s \n", round(totalAbsError, digits=4))
+        @printf("Mean estimation error is %s \n", round(meanEstimationError, digits=4))
         @printf("Number of triplets compared for error estimation %s \n", estErrorN)
         @printf("Time to embed sequences: %s \n", timeEmbedSequences)
         @printf("Time to compute pred distance matrix: %s \n", timeGetPredictedDistanceMatrix)
         @printf("Time to get recall at K: %s \n", timeGetRecallAtK)
         @printf("Time to get error estimation: %s \n", timeGetEstimationError)
-        return meanAbsError, maxAbsError, minAbsError, totalAbsError, recallDict
+        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict
     end
     anynan(x) = any(y -> any(isnan, y), x)
 end

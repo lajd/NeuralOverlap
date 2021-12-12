@@ -68,7 +68,7 @@ end
 
 
     @testset "Test TrainingDataset" begin
-        trainingDataset = Dataset.TrainingDataset(10, 10, 10, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+        trainingDataset = Dataset.DatasetHelper(10, 10, 10, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
 
         distMat = trainingDataset.getDistanceMatrix()
         seqIdMap = trainingDataset.getSeqIdMap()
@@ -223,7 +223,7 @@ end
     @testset "Test Evaluation" begin
         maxStringLength = 10
         numSeqs = 10
-        dataset = Dataset.TrainingDataset(numSeqs, maxStringLength, maxStringLength, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+        dataset = Dataset.DatasetHelper(numSeqs, maxStringLength, maxStringLength, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
         batchDict = dataset.getTripletBatch(numSeqs)
         batchTuple = dataset.batchToTuple(batchDict)
 
