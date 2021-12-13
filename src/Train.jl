@@ -66,8 +66,6 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
 
     bestMeanAbsEvalError = 1e6
 
-    ps = params(model)
-
     maxgsArray = [];  mingsArray = []; meangsArray = []
 
     @printf("Beginning training...\n")
@@ -91,7 +89,7 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
             epochBatchChannel = Channel( (channel) -> trainDataHelper.batchTuplesProducer(channel, nbs, args.BSIZE, DEVICE), maxChannelSize)
             for (ids_and_reads, tensorBatch) in epochBatchChannel
                 timeSpentForward += @elapsed begin
-                    gs = gradient(ps) do
+                    gs = gradient(params(model)) do
                         rankLoss, embeddingLoss, fullLoss = Model.tripletLoss(
                             args, tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg,
                         )
@@ -106,7 +104,7 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                         maxgs, mings, meangs = Utils.validateGradients(gs)
                         push!(maxgsArray, maxgs); push!(mingsArray, mings);  push!(meangsArray, meangs)
                     end
-                    update!(opt, ps, gs)
+                    update!(opt, params(model), gs)
 
                     if args.DEBUG
                         # Terminate on NaN
@@ -197,23 +195,24 @@ end
 
 ExperimentArgs = [
     ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=100,
-        NUM_BATCHES=256,
-        NUM_INTERMEDIATE_CONV_LAYERS=4,
-        CONV_ACTIVATION=relu,
+        NUM_EPOCHS=50,
+        NUM_BATCHES=5,  # 
+        NUM_INTERMEDIATE_CONV_LAYERS=2,
+        CONV_ACTIVATION=identity,
         WITH_INPUT_BATCHNORM=false,
-        WITH_BATCHNORM=true,
-        WITH_DROPOUT=true,
+        WITH_BATCHNORM=false,
+        WITH_DROPOUT=false,
         NUM_FC_LAYERS=1,
-        LR = 0.1,
+        LR = 0.001,
         L0rank = 1.,
         L0emb = 0.5,
-        LOSS_STEPS_DICT = Dict(),
+        # LOSS_STEPS_DICT = Dict(),
+        POOLING_METHOD="mean",
         DISTANCE_METHOD="l2",
-        GRADIENT_CLIP_VALUE=0.1,
-        NUM_TRAINING_EXAMPLES=20000,
+        GRADIENT_CLIP_VALUE=nothing,
+        NUM_TRAINING_EXAMPLES=1000,
         NUM_EVAL_EXAMPLES = 1000,
-        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
+        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
         USE_SYNTHETIC_DATA=true,
         USE_SEQUENCE_DATA=false,
     ),
@@ -239,12 +238,13 @@ for args in ExperimentArgs
                 args.EXP_DECAY_EVERY_N_EPOCHS * args.BSIZE, args.EXP_DECAY_CLIP
             )
         )
+
         if isnothing(args.GRADIENT_CLIP_VALUE)
             opt = baseOpt
         else
             opt = Flux.Optimise.Optimiser(ClipValue(args.GRADIENT_CLIP_VALUE), opt)
         end
-
+        
         # Create the model
         embeddingModel = Model.getModel(
             args.MAX_STRING_LENGTH, args.ALPHABET_DIM, args.EMBEDDING_DIM,
@@ -254,7 +254,7 @@ for args in ExperimentArgs
             withDropout=args.WITH_DROPOUT, c=args.OUT_CHANNELS, k=args.KERNEL_SIZE,
             poolingMethod=args.POOLING_METHOD
          ) |> DEVICE
-
+        
          # Generate sequences
         if args.USE_SYNTHETIC_DATA == true
              trainingSequences = SyntheticDataset.generateSequences(
@@ -267,13 +267,13 @@ for args in ExperimentArgs
         else
             throw("Must provide type of dataset")
         end
-
+        
         # Training dataset
         trainDatasetHelper = Dataset.DatasetHelper(
             trainingSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
             Utils.pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD
         )
-
+        
         Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="training_dataset")
         Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR, identifier="training_dataset")
         batchDict = trainDatasetHelper.getTripletBatch(args.BSIZE)

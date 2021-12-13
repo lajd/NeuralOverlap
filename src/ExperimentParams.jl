@@ -45,11 +45,11 @@ module ExperimentParams
         NUM_FC_LAYERS = 1
 
         FC_ACTIVATION = relu
-        CONV_ACTIVATION = relu
+        CONV_ACTIVATION = identity
 
         WITH_INPUT_BATCHNORM = false
-        WITH_BATCHNORM = true
-        WITH_DROPOUT = true
+        WITH_BATCHNORM = false
+        WITH_DROPOUT = false
 
         # Pooling
         POOLING_METHOD= "mean"
