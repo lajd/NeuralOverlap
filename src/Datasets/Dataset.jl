@@ -27,7 +27,7 @@ module Dataset
 
     function DatasetHelper(sequences::Array{String}, maxSequenceLength::Int64,
          alphabet::Vector{Char}, alphabetSymbols::Vector{Symbol},
-         pairwiseDistanceFun::Function, weightFunctionMethod::String)
+         pairwiseDistanceFun::Function, weightFunctionMethod::String, distanceMatNormMethod::String="max")
         numSequences = length(sequences)
         @info("Creating dataset from sequences...\n")
         @printf("Using dataset with %s sequences\n", numSequences)
@@ -39,13 +39,19 @@ module Dataset
 
         timeGetPairwiseDistances = @elapsed begin
             seqIdMap, distanceMatrix = pairwiseDistanceFun(sequences)
+            # Normalize distance matrix by maximum length
+            if distanceMatNormMethod == "mean"
+                distanceMatrix = distanceMatrix / mean(distanceMatrix)
+            elseif distanceMatNormMethod == "max"
+                distanceMatrix = distanceMatrix / maxSequenceLength
+            else
+                throw("Invalid normalization scheme")
+            end
+
         end
         @printf("Time to calculate pairwise ground-truth distances: %ss\n", timeGetPairwiseDistances)
 
         timeCreateIDSeqDataMap = @elapsed begin
-            # Normalize distance matrix by maximum length
-            distanceMatrix = distanceMatrix / maxSequenceLength
-
             idSeqDataMap = Dict()
 
             numNN = min(numSequences, 100)

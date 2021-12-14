@@ -5,6 +5,7 @@ include("./src/Model.jl")
 include("./src/Datasets/Dataset.jl")
 include("./src/Datasets/SyntheticDataset.jl")
 include("./src/Datasets/SequenceDataset.jl")
+include("./src/Datasets/Words.jl")
 
 # include("./args.jl")
 # include("./Utils.jl")
@@ -40,6 +41,7 @@ using .Model
 using .Dataset
 using .SyntheticDataset
 using .SequenceDataset
+using .Words
 
 
 try
@@ -140,7 +142,8 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                     @allowscalar begin
                         meanAbsEvalError, maxAbsEvalError, minAbsEvalError, totalAbsEvalError, meanEstimationError, recallDict = Utils.evaluateModel(
                             evalDataHelper, model, args.MAX_STRING_LENGTH,
-                            plotsSavePath=args.PLOTS_SAVE_DIR, identifier=epoch
+                            plotsSavePath=args.PLOTS_SAVE_DIR, identifier=epoch,
+                            distanceMatrixNormMethod=args.DISTANCE_MATRIX_NORM_METHOD
                         )
 
                         push!(meanAbsEvalErrorArray, meanAbsEvalError)
@@ -192,31 +195,75 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
     end
 end
 
+function getTrainingSequences(args)
+    # Generate sequences
+    if args.USE_SYNTHETIC_DATA == true
+    trainingSequences = SyntheticDataset.generateSequences(
+        args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH,
+        args.MAX_STRING_LENGTH, args.ALPHABET, ratioOfRandom=args.RATIO_OF_RANDOM_SAMPLES,
+        similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
+    )
+    elseif args.USE_SEQUENCE_DATA == true
+        trainingSequences = SequenceDataset.getReadSequenceData(args.NUM_TRAINING_EXAMPLES)
+    elseif args.USE_WORD_DATASET == true
+        trainingSequences = Words.getWords()
+    else
+        throw("Must provide type of dataset")
+    end
+    return trainingSequences
+end
+
+
+function getEvaluationSequences(args)
+    # Evaluation dataset
+    if args.USE_SYNTHETIC_DATA == true
+        evalSequences = SyntheticDataset.generateSequences(
+            args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH,
+            args.MAX_STRING_LENGTH, args.ALPHABET,ratioOfRandom=args.RATIO_OF_RANDOM_SAMPLES,
+            similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
+            )
+    elseif args.USE_SEQUENCE_DATA == true
+        evalSequences = SequenceDataset.getReadSequenceData(args.NUM_EVAL_EXAMPLES)
+    else
+        throw("Must provide type of dataset")
+    end
+    return evalSequences
+end
+
 
 ExperimentArgs = [
     ExperimentParams.ExperimentArgs(
         NUM_EPOCHS=50,
-        NUM_BATCHES=5,  # 
+        NUM_BATCHES=512,  # 
+        MAX_STRING_LENGTH=32,
         NUM_INTERMEDIATE_CONV_LAYERS=2,
         CONV_ACTIVATION=identity,
         WITH_INPUT_BATCHNORM=false,
         WITH_BATCHNORM=false,
         WITH_DROPOUT=false,
         NUM_FC_LAYERS=1,
-        LR = 0.001,
+        LR = 0.01,
         L0rank = 1.,
         L0emb = 0.5,
         # LOSS_STEPS_DICT = Dict(),
         POOLING_METHOD="mean",
         DISTANCE_METHOD="l2",
         GRADIENT_CLIP_VALUE=nothing,
-        NUM_TRAINING_EXAMPLES=1000,
+        NUM_TRAINING_EXAMPLES=20000,
         NUM_EVAL_EXAMPLES = 1000,
         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
         USE_SYNTHETIC_DATA=true,
         USE_SEQUENCE_DATA=false,
     ),
 ]
+
+
+########
+# Pairwise distances (L=32, N=20k -> 1min)
+#
+#
+#
+#
 
 for args in ExperimentArgs
     try
@@ -255,23 +302,14 @@ for args in ExperimentArgs
             poolingMethod=args.POOLING_METHOD
          ) |> DEVICE
         
-         # Generate sequences
-        if args.USE_SYNTHETIC_DATA == true
-             trainingSequences = SyntheticDataset.generateSequences(
-                args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH,
-                args.MAX_STRING_LENGTH, args.ALPHABET, ratioOfRandom=args.RATIO_OF_RANDOM_SAMPLES,
-                similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
-             )
-        elseif args.USE_SEQUENCE_DATA == true
-            trainingSequences = SequenceDataset.getReadSequenceData(args.NUM_TRAINING_EXAMPLES)
-        else
-            throw("Must provide type of dataset")
-        end
+         # Training dataset
+         trainingSequences = getTrainingSequences(args)
         
         # Training dataset
         trainDatasetHelper = Dataset.DatasetHelper(
             trainingSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
-            Utils.pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD
+            Utils.pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
+            args.DISTANCE_MATRIX_NORM_METHOD
         )
         
         Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="training_dataset")
@@ -280,27 +318,19 @@ for args in ExperimentArgs
         Dataset.plotTripletBatchDistances(batchDict, args.PLOTS_SAVE_DIR)
 
         # Evaluation dataset
-        if args.USE_SYNTHETIC_DATA == true
-            evalSequences = SyntheticDataset.generateSequences(
-                args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH,
-                args.MAX_STRING_LENGTH, args.ALPHABET,ratioOfRandom=args.RATIO_OF_RANDOM_SAMPLES,
-                similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
-             )
-        elseif args.USE_SEQUENCE_DATA == true
-            evalSequences = SequenceDataset.getReadSequenceData(args.NUM_EVAL_EXAMPLES)
-        else
-            throw("Must provide type of dataset")
-        end
+        evalSequences = getEvaluationSequences(args)
 
         evalDatasetHelper = Dataset.DatasetHelper(
             evalSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
-            Utils.pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD
+            Utils.pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
+            args.DISTANCE_MATRIX_NORM_METHOD
         )
         Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset")
         Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset")
 
         trainingLoop!(args, embeddingModel, trainDatasetHelper, evalDatasetHelper, opt, numEpochs=args.NUM_EPOCHS, evalEvery=args.EVAL_EVERY)
     catch e
+        display(stacktrace(catch_backtrace()))
         @warn("Skipping experiment: ", e)
     end
 end

@@ -138,21 +138,34 @@ module Utils
         end
     end
 
-    function recallTopN(predKNN, actualKNN; T=100,K=100)
+    function recallTopTAtK(predKNN, actualKNN; T=100,K=100)
         """
         T is the number of relevant documents
         K is the numer of "true" documents
         """
-        # If the items ranking  top T contain k of the true top-k neighbors, the recall is k′/k.
-        # Recall= (Relevant_Items_Recommended in top-k) / (Relevant_Items)
-        predTNN = predKNN[1:min(T, length(predKNN))]
-        actualKNN = actualKNN[1: min(K, length(actualKNN))]
-        intersection = sum([1 for i in predTNN if i in actualKNN])
-        recall = intersection / T
+        # If the items ranking top T contain k of the true top-k neighbors, the recall is k′/k.
+        # Recall = (Relevant_Items_Recommended in top-k) / (Relevant_Items)
+        
+        T = min(T, length(predKNN))
+        K = min(K, length(actualKNN))
+
+        # Get the top T highest ranked (predicted) items
+        predTNN = predKNN[1:T]
+
+        # Get the top K ground truth items
+        actualKNN = actualKNN[1: K]
+
+        # Get the k' elements of T that are in the top K
+        kPrime = sum([1 for i in predTNN if i in actualKNN])
+        
+        # Recall is k'/k
+        recall = kPrime / T
         return recall
     end
 
     function getTopTRecallAtK(idSeqDataMap, distanceMatrix, predictedDistanceMatrix; plotsSavePath=".", identifier="", numNN=100, kStep=10)
+        n = length(idSeqDataMap)
+        
         # Get k-nns and recall
         kValues = [k for k in range(1, numNN + 1, step=kStep)]
         recallDict = Dict(
@@ -167,13 +180,15 @@ module Utils
         # so that the sequence is not compared with itself (skewing results, especially T=1)
         startIndex = 2
         for k in kValues
-            for id in 1:length(idSeqDataMap)
+            for id in 1:n
                 predicted_knns = sortperm(predictedDistanceMatrix[id, 1:end])[startIndex:numNN]
                 actual_knns = idSeqDataMap[id]["k100NN"][startIndex:end]
-                recallDict["top1Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=1, K=k)
-                recallDict["top10Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=10, K=k)
-                recallDict["top50Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=50, K=k)
-                recallDict["top100Recall"][k] += Utils.recallTopN(predicted_knns, actual_knns, T=100, K=k)
+
+                @assert length(predicted_knns) == length(actual_knns)
+                recallDict["top1Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=1, K=k)
+                recallDict["top10Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=10, K=k)
+                recallDict["top50Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=50, K=k)
+                recallDict["top100Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=100, K=k)
             end
         end
 
@@ -205,8 +220,12 @@ module Utils
     end
 
     function embedSequenceData(datasetHelper, idSeqDataMap, embeddingModel; bsize=128)
+        
+        n = length(idSeqDataMap)  # Number of sequences
+        
+        # Xarray's index is the same as idSeqDataMap
         Xarray = []
-        for k in 1:length(idSeqDataMap)
+        for k in 1:n
             v = idSeqDataMap[k]
             push!(Xarray, v["oneHotSeq"])
         end
@@ -217,7 +236,6 @@ module Utils
 
         i = 1
         j = bsize
-        n = size(X)[3]
         while j < n
             Xm=X[1:end, 1:end, i:j] |> DEVICE
             push!(Earray, embeddingModel(Xm))
@@ -228,17 +246,23 @@ module Utils
         push!(Earray, embeddingModel(Xm))
 
         E = hcat(Earray...)
-        @assert size(E)[2] == length(idSeqDataMap)
+        @assert size(E)[2] == n
         return E
     end
 
-    function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="")
+    function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max")
         n = size(distanceMatrix)[1]
         # Get average estimation error
         predDistanceArray = []
         trueDistanceArray = []
         absErrorArray = []
         estimationErrorArray = []
+        
+        if distanceMatrixNormMethod == "max"
+            denormFactor = maxStringLength
+        elseif distanceMatrixNormMethod == "mean"
+            denormFactor = mean(distanceMatrix)
+        end
 
         for _ in 1:estErrorN
             local trueDist = 0
@@ -246,10 +270,10 @@ module Utils
             while isapprox(trueDist, 0.) == true
                 id1 = rand(1:n)
                 id2 = rand(1:n)
-                trueDist = distanceMatrix[id1, id2] * maxStringLength
+                trueDist = distanceMatrix[id1, id2] * denormFactor
             end
 
-            predDist = predictedDistanceMatrix[id1, id2] * maxStringLength
+            predDist = predictedDistanceMatrix[id1, id2] * denormFactor
 
             push!(predDistanceArray, predDist)
             push!(trueDistanceArray, trueDist)
@@ -276,8 +300,10 @@ module Utils
     end
 
 
-    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=512, method="l2", numNN=100, estErrorN=1000, plotsSavePath=".", identifier="")
+    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=512, method="l2", numNN=100, estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max")
         idSeqDataMap = datasetHelper.getIdSeqDataMap()
+        n = length(idSeqDataMap)
+
         distanceMatrix = datasetHelper.getDistanceMatrix()
         numSeqs = length(idSeqDataMap)
 
@@ -290,11 +316,17 @@ module Utils
         # Convert back to CPU
         Etensor = Etensor |> cpu
 
+        @assert size(Etensor)[2] == n
+
 
         timeGetPredictedDistanceMatrix = @elapsed begin
             # Obtain inferred/predicted distance matrix
             predictedDistanceMatrix=pairwiseDistance(Etensor, method)
         end
+
+
+        @assert size(predictedDistanceMatrix)[1] == n
+        @assert size(predictedDistanceMatrix)[2] == n
 
         timeGetRecallAtK = @elapsed begin
             # Obtain the recall dictionary for each T value, for each K value
@@ -308,7 +340,8 @@ module Utils
             # Obtain estimation error
             meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError = getEstimationError(
                 distanceMatrix, predictedDistanceMatrix, maxStringLength,
-                estErrorN=estErrorN, plotsSavePath=plotsSavePath, identifier=identifier
+                estErrorN=estErrorN, plotsSavePath=plotsSavePath, identifier=identifier,
+                distanceMatrixNormMethod=distanceMatrixNormMethod
             )
         end
 

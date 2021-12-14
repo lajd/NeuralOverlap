@@ -68,7 +68,7 @@ end
 
 
     @testset "Test TrainingDataset" begin
-        trainingDataset = Dataset.DatasetHelper(10, 10, 10, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+        trainingDataset = Dataset.DatasetHelper(10, 10, 10, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance, args.DISTANCE_MATRIX_NORM_METHOD)
 
         distMat = trainingDataset.getDistanceMatrix()
         seqIdMap = trainingDataset.getSeqIdMap()
@@ -223,7 +223,7 @@ end
     @testset "Test Evaluation" begin
         maxStringLength = 10
         numSeqs = 10
-        dataset = Dataset.DatasetHelper(numSeqs, maxStringLength, maxStringLength, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance)
+        dataset = Dataset.DatasetHelper(numSeqs, maxStringLength, maxStringLength, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance, args.DISTANCE_MATRIX_NORM_METHOD)
         batchDict = dataset.getTripletBatch(numSeqs)
         batchTuple = dataset.batchToTuple(batchDict)
 
@@ -253,7 +253,7 @@ end
             expectedRecall = [1/20, 1/20, 2/20, 3/20, 4/20, 5/20, 6/20, 6/20, 7/20, 7/20]
             actualKNN = Array(1:10)
             for k in 1:10
-                @assert isapprox(Utils.recallTopN(predKNN, actualKNN;T=t, K=k), expectedRecall[k])
+                @assert isapprox(Utils.recallTopTAtKpredKNN, actualKNN;T=t, K=k), expectedRecall[k])
             end
         end
     end

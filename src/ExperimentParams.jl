@@ -38,6 +38,12 @@ module ExperimentParams
         # Simulated sequence dataset
         USE_SEQUENCE_DATA=false
 
+        # Words
+        USE_WORD_DATASET=false
+
+        # Distance matrix normalization metho
+        DISTANCE_MATRIX_NORM_METHOD="mean"
+
         ###############
         # Model Arch
         ###############
@@ -82,6 +88,8 @@ module ExperimentParams
             _N_LOSS_STEPS * 3 => (5., 0.1),
             _N_LOSS_STEPS * 4 => (1., 0.01),
         )
+
+        # Compute num batches such that, on average, each sequence will be used once
         NUM_BATCHES = 512
         EXP_DECAY_EVERY_N_EPOCHS=5
         EXP_DECAY_VALUE=0.5
