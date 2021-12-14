@@ -27,7 +27,8 @@ module Dataset
 
     function DatasetHelper(sequences::Array{String}, maxSequenceLength::Int64,
          alphabet::Vector{Char}, alphabetSymbols::Vector{Symbol},
-         pairwiseDistanceFun::Function, weightFunctionMethod::String, distanceMatNormMethod::String="max")
+         pairwiseDistanceFun::Function, weightFunctionMethod::String,
+         distanceMatNormMethod::String="max", numNN=100)
         numSequences = length(sequences)
         @info("Creating dataset from sequences...\n")
         @printf("Using dataset with %s sequences\n", numSequences)
@@ -54,7 +55,7 @@ module Dataset
         timeCreateIDSeqDataMap = @elapsed begin
             idSeqDataMap = Dict()
 
-            numNN = min(numSequences, 100)
+            numNN = min(numSequences, numNN)
 
             # Weights
             @printf("Using sampling method %s\n", weightFunctionMethod)

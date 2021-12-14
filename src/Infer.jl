@@ -92,8 +92,13 @@ end
 evalDatasetHelper = Dataset.DatasetHelper(
     evalSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
     Utils.pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
-    args.DISTANCE_MATRIX_NORM_METHOD
+    args.DISTANCE_MATRIX_NORM_METHOD, args.NUM_NNS
 )
 
 
-meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict = Utils.evaluateModel(evalDatasetHelper, embeddingModel, args.MAX_STRING_LENGTH, method=args.DISTANCE_METHOD, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="inference", distanceMatrixNormMethod=args.DISTANCE_MATRIX_NORM_METHOD)
+meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict = Utils.evaluateModel(
+    evalDatasetHelper, embeddingModel, args.MAX_STRING_LENGTH,
+    method=args.DISTANCE_METHOD, plotsSavePath=args.PLOTS_SAVE_DIR, numNN=args.NUM_NNS,
+    identifier="inference", distanceMatrixNormMethod=args.DISTANCE_MATRIX_NORM_METHOD,
+    kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP
+)

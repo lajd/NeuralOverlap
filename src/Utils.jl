@@ -163,11 +163,13 @@ module Utils
         return recall
     end
 
-    function getTopTRecallAtK(idSeqDataMap, distanceMatrix, predictedDistanceMatrix; plotsSavePath=".", identifier="", numNN=100, kStep=10)
+    function getTopTRecallAtK(idSeqDataMap, distanceMatrix, predictedDistanceMatrix; plotsSavePath=".", identifier="", numNN=100, kStart=1, kEnd=100, kStep=10)
         n = length(idSeqDataMap)
-        
+
+        numNN = min(n, numNN)
+
         # Get k-nns and recall
-        kValues = [k for k in range(1, numNN + 1, step=kStep)]
+        kValues = [k for k in range(kStart, kEnd + 1, step=kStep)]
         recallDict = Dict(
             "top1Recall" => Dict([(k, 0.) for k in kValues]),
             "top10Recall" => Dict([(k, 0.) for k in kValues]),
@@ -213,7 +215,7 @@ module Utils
             # Save a plot to a new directory
             saveDir = joinpath(plotsSavePath, topNRecallAtK)
             mkpath(saveDir)
-            fig = plot(kArray, recallAtKArray, title=topNRecallAtK, xlabel="K-value", ylabel="Recall", label=["Recall"])
+            fig = plot(kArray, recallAtKArray, title=topNRecallAtK, xlabel="# Items", ylabel="Recall", label=["Recall"])
             savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
         end
         return recallDict
@@ -300,7 +302,10 @@ module Utils
     end
 
 
-    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=512, method="l2", numNN=100, estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max")
+    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=512,
+         method="l2", numNN=100, estErrorN=1000, plotsSavePath=".",
+         identifier="", distanceMatrixNormMethod="max", kStart=kStart, kEnd=kEnd, kStep=kStep
+        )
         idSeqDataMap = datasetHelper.getIdSeqDataMap()
         n = length(idSeqDataMap)
 
@@ -333,6 +338,7 @@ module Utils
             recallDict = getTopTRecallAtK(
                 idSeqDataMap, distanceMatrix, predictedDistanceMatrix,
                 plotsSavePath=plotsSavePath, identifier=identifier, numNN=numNN,
+                kStart=kStart, kEnd=kEnd, kStep=kStep
             )
         end
 

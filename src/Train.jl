@@ -88,7 +88,10 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
             @info("Starting epoch %s...\n", epoch)
             # Set to train mode
             trainmode!(model, true)
-            epochBatchChannel = Channel( (channel) -> trainDataHelper.batchTuplesProducer(channel, nbs, args.BSIZE, DEVICE), maxChannelSize)
+
+            timeSpentFetchingData += @elapsed begin
+                epochBatchChannel = Channel( (channel) -> trainDataHelper.batchTuplesProducer(channel, nbs, args.BSIZE, DEVICE), maxChannelSize)
+            end
             for (ids_and_reads, tensorBatch) in epochBatchChannel
                 timeSpentForward += @elapsed begin
                     gs = gradient(params(model)) do
@@ -108,7 +111,7 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                     end
                     update!(opt, params(model), gs)
 
-                    if args.DEBUG
+                    if args.TERMINATE_ON_NAN
                         # Terminate on NaN
                         if Utils.anynan(Flux.params(model))
                             @error("Model params NaN after update")
@@ -141,9 +144,11 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
 
                     @allowscalar begin
                         meanAbsEvalError, maxAbsEvalError, minAbsEvalError, totalAbsEvalError, meanEstimationError, recallDict = Utils.evaluateModel(
-                            evalDataHelper, model, args.MAX_STRING_LENGTH,
+                            evalDataHelper, model, args.MAX_STRING_LENGTH, numNN=args.NUM_NNS,
                             plotsSavePath=args.PLOTS_SAVE_DIR, identifier=epoch,
-                            distanceMatrixNormMethod=args.DISTANCE_MATRIX_NORM_METHOD
+                            distanceMatrixNormMethod=args.DISTANCE_MATRIX_NORM_METHOD,
+                            kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP
+
                         )
 
                         push!(meanAbsEvalErrorArray, meanAbsEvalError)
@@ -233,24 +238,25 @@ end
 
 ExperimentArgs = [
     ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=50,
-        NUM_BATCHES=512,  # 
-        MAX_STRING_LENGTH=32,
-        NUM_INTERMEDIATE_CONV_LAYERS=2,
+        NUM_EPOCHS=100,
+        NUM_BATCHES=512,  #
+        NUM_NNS=200,
+        MAX_STRING_LENGTH=64,
+        NUM_INTERMEDIATE_CONV_LAYERS=3,
         CONV_ACTIVATION=identity,
-        WITH_INPUT_BATCHNORM=false,
-        WITH_BATCHNORM=false,
-        WITH_DROPOUT=false,
-        NUM_FC_LAYERS=1,
-        LR = 0.01,
-        L0rank = 1.,
-        L0emb = 0.5,
-        # LOSS_STEPS_DICT = Dict(),
+        WITH_INPUT_BATCHNORM=true,
+        WITH_BATCHNORM=true,
+        WITH_DROPOUT=true,
+        NUM_FC_LAYERS=2,
+        LR=0.01,
+        L0rank=1.,
+        L0emb=0.5,
+#         LOSS_STEPS_DICT = Dict(),
         POOLING_METHOD="mean",
         DISTANCE_METHOD="l2",
         GRADIENT_CLIP_VALUE=nothing,
         NUM_TRAINING_EXAMPLES=20000,
-        NUM_EVAL_EXAMPLES = 1000,
+        NUM_EVAL_EXAMPLES=1000,
         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
         USE_SYNTHETIC_DATA=true,
         USE_SEQUENCE_DATA=false,
@@ -309,7 +315,7 @@ for args in ExperimentArgs
         trainDatasetHelper = Dataset.DatasetHelper(
             trainingSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
             Utils.pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
-            args.DISTANCE_MATRIX_NORM_METHOD
+            args.DISTANCE_MATRIX_NORM_METHOD, args.NUM_NNS
         )
         
         Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="training_dataset")
@@ -323,7 +329,7 @@ for args in ExperimentArgs
         evalDatasetHelper = Dataset.DatasetHelper(
             evalSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
             Utils.pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
-            args.DISTANCE_MATRIX_NORM_METHOD
+            args.DISTANCE_MATRIX_NORM_METHOD, args.NUM_NNS
         )
         Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset")
         Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset")

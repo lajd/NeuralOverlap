@@ -72,6 +72,12 @@ module ExperimentParams
         ################
         BSIZE = 256
         NUM_EPOCHS = 50
+        NUM_NNS = 100
+        K_START = 1
+        K_END = 200
+        K_STEP = 20
+
+
         @assert NUM_EPOCHS > 0
         LR = 0.01
         GRADIENT_CLIP_VALUE = nothing
@@ -94,6 +100,8 @@ module ExperimentParams
         EXP_DECAY_EVERY_N_EPOCHS=5
         EXP_DECAY_VALUE=0.5
         EXP_DECAY_CLIP=1e-5
+
+        TERMINATE_ON_NAN=true
 
         ################
         # Experiment
