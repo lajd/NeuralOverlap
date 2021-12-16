@@ -9,6 +9,7 @@ module Utils
     using Flux
     using Plots
     using DataStructures
+    using Lathe
 
     try
         using CUDA
@@ -107,7 +108,7 @@ module Utils
             if any(isnan.(elements))
                 @error("max %s, min %s", max_, min_)
                 @error("Encountered NAN value in gs with max %s, min %s", maxGS, minGS)
-                break
+                throw("Encuntered NaN")
             end
             push!(maxGSArr, max_)
             push!(minGSArr, min_)
@@ -252,11 +253,12 @@ module Utils
         return E
     end
 
-    function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max")
+    function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max", linearEditDistanceModel=nothing)
         n = size(distanceMatrix)[1]
         # Get average estimation error
         predDistanceArray = []
         trueDistanceArray = []
+
         absErrorArray = []
         estimationErrorArray = []
         
@@ -287,6 +289,18 @@ module Utils
             push!(estimationErrorArray, estimationError)
 
         end
+
+        # Fit a linear model
+        if isnothing(linearEditDistanceModel)
+            linearEditDistanceModel = Lathe.models.LinearLeastSquare(
+                predDistanceArray,
+                trueDistanceArray,
+            )
+        end
+
+        calibratedPredictedDistanceArray = linearEditDistanceModel.predict(predDistanceArray)
+
+
         meanAbsError = mean(absErrorArray)
         maxAbsError = maximum(absErrorArray)
         minAbsError = minimum(absErrorArray)
@@ -296,16 +310,18 @@ module Utils
         # Plot the true/predicted estimation error
         saveDir = joinpath(plotsSavePath, "true_vs_pred_edit_distance")
         mkpath(saveDir)
-        fig = plot(scatter(trueDistanceArray, predDistanceArray, title="true_vs_pred_edit_distance", xlabel="true-edit-distance", ylabel="predicted-edit-distance"))
+        fig = plot(scatter(calibratedPredictedDistanceArray, predDistanceArray, title="true_vs_calibrated_pred_edit_distance", xlabel="true-edit-distance", ylabel="calibrated-predicted-edit-distance"))
         savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
-        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError
+        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, linearEditDistanceModel
     end
 
 
     function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=512,
          method="l2", numNN=100, estErrorN=1000, plotsSavePath=".",
-         identifier="", distanceMatrixNormMethod="max", kStart=kStart, kEnd=kEnd, kStep=kStep
+         identifier="", distanceMatrixNormMethod="max", kStart=kStart,
+         kEnd=kEnd, kStep=kStep
         )
+
         idSeqDataMap = datasetHelper.getIdSeqDataMap()
         n = length(idSeqDataMap)
 
@@ -344,7 +360,8 @@ module Utils
 
         timeGetEstimationError = @elapsed begin
             # Obtain estimation error
-            meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError = getEstimationError(
+            meanAbsError, maxAbsError, minAbsError,
+            totalAbsError, meanEstimationError, linearEditDistanceModel = getEstimationError(
                 distanceMatrix, predictedDistanceMatrix, maxStringLength,
                 estErrorN=estErrorN, plotsSavePath=plotsSavePath, identifier=identifier,
                 distanceMatrixNormMethod=distanceMatrixNormMethod
@@ -362,7 +379,7 @@ module Utils
         @printf("Time to compute pred distance matrix: %s \n", timeGetPredictedDistanceMatrix)
         @printf("Time to get recall at K: %s \n", timeGetRecallAtK)
         @printf("Time to get error estimation: %s \n", timeGetEstimationError)
-        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict
+        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict, linearEditDistanceModel
     end
     anynan(x) = any(y -> any(isnan, y), x)
 end

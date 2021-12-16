@@ -25,7 +25,7 @@ using LinearAlgebra
 using Zygote
 using Zygote: gradient, @ignore
 using BSON: @save
-using JLD
+using JLD2
 using Debugger
 using Plots
 
@@ -143,7 +143,9 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                     trainmode!(model, false)
 
                     @allowscalar begin
-                        meanAbsEvalError, maxAbsEvalError, minAbsEvalError, totalAbsEvalError, meanEstimationError, recallDict = Utils.evaluateModel(
+                        meanAbsEvalError, maxAbsEvalError, minAbsEvalError,
+                        totalAbsEvalError, meanEstimationError,
+                        recallDict, linearEditDistanceModel = Utils.evaluateModel(
                             evalDataHelper, model, args.MAX_STRING_LENGTH, numNN=args.NUM_NNS,
                             plotsSavePath=args.PLOTS_SAVE_DIR, identifier=epoch,
                             distanceMatrixNormMethod=args.DISTANCE_MATRIX_NORM_METHOD,
@@ -183,12 +185,23 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                         # Save the model, removing old ones
                         if epoch > 1 && meanAbsEvalError < bestMeanAbsEvalError
                             SaveModelTime = @elapsed begin
+                                # Save the embedding model
                                 @printf("Saving new model...\n")
                                 bestMeanAbsEvalError = meanAbsEvalError
-                                modelName = string("edit_cnn_epoch", "epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError, args.MODEL_SAVE_SUFFIX)
                                 Utils.removeOldModels(args.MODEL_SAVE_DIR, args.MODEL_SAVE_SUFFIX)
-                                cpuModel = model |> cpu
-                                @save joinpath(args.MODEL_SAVE_DIR, modelName) cpuModel
+                                emeddingModelCPU = model |> cpu
+#                                 @save joinpath(args.MODEL_SAVE_DIR, emdeddingModelName) cpuModel
+
+                                # Save the linear calibration model
+                                # TODO: Enable saving of model
+                                calibrationModelName = string("calibration_lin", "epoch_", epoch,  args.MODEL_SAVE_SUFFIX)
+
+
+                                modelName = string("epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError, args.MODEL_SAVE_SUFFIX)
+
+                               JLD2.save(joinpath(args.MODEL_SAVE_DIR, string(modelName, ".jld2")), "embedding_model", emeddingModelCPU)
+                               JLD2.save(joinpath(args.MODEL_SAVE_DIR, string(modelName, ".jld2")), "distance_calibration_model", linearEditDistanceModel)
+                               #@save joinpath(args.MODEL_SAVE_DIR, calibrationModelName) linearEditDistanceModel
                             end
                             @printf("Save moodel time %s\n", SaveModelTime)
                         end
@@ -239,15 +252,16 @@ end
 ExperimentArgs = [
     ExperimentParams.ExperimentArgs(
         NUM_EPOCHS=100,
-        NUM_BATCHES=512,  #
-        NUM_NNS=200,
+        NUM_BATCHES=256,  #
+        NUM_NNS=100,
         MAX_STRING_LENGTH=64,
+        BSIZE=64,
         NUM_INTERMEDIATE_CONV_LAYERS=3,
         CONV_ACTIVATION=identity,
-        WITH_INPUT_BATCHNORM=true,
+        WITH_INPUT_BATCHNORM=false,
         WITH_BATCHNORM=true,
-        WITH_DROPOUT=true,
-        NUM_FC_LAYERS=2,
+        WITH_DROPOUT=false,
+        NUM_FC_LAYERS=1,
         LR=0.01,
         L0rank=1.,
         L0emb=0.5,
@@ -256,12 +270,13 @@ ExperimentArgs = [
         DISTANCE_METHOD="l2",
         GRADIENT_CLIP_VALUE=nothing,
         NUM_TRAINING_EXAMPLES=20000,
-        NUM_EVAL_EXAMPLES=1000,
+        NUM_EVAL_EXAMPLES=5000,
         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
         USE_SYNTHETIC_DATA=true,
         USE_SEQUENCE_DATA=false,
     ),
 ]
+
 
 
 ########
@@ -331,6 +346,7 @@ for args in ExperimentArgs
             Utils.pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
             args.DISTANCE_MATRIX_NORM_METHOD, args.NUM_NNS
         )
+
         Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset")
         Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset")
 

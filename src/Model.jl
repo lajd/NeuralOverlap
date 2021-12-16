@@ -12,6 +12,8 @@ module Model
     using LinearAlgebra
     using Zygote
     using Printf
+    using Lathe.models: predict, LinearRegression
+
 
     using ..Utils
 
@@ -226,4 +228,5 @@ module Model
 
         return rankLoss, mseLoss, rankLoss + mseLoss
     end
+
 end
