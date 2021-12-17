@@ -190,12 +190,9 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                                 bestMeanAbsEvalError = meanAbsEvalError
                                 Utils.removeOldModels(args.MODEL_SAVE_DIR, args.MODEL_SAVE_SUFFIX)
                                 emeddingModelCPU = model |> cpu
-#                                 @save joinpath(args.MODEL_SAVE_DIR, emdeddingModelName) cpuModel
 
                                 # Save the linear calibration model
-                                # TODO: Enable saving of model
                                 calibrationModelName = string("calibration_lin", "epoch_", epoch,  args.MODEL_SAVE_SUFFIX)
-
 
                                 modelName = string("epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError, args.MODEL_SAVE_SUFFIX)
 

@@ -253,7 +253,7 @@ module Utils
         return E
     end
 
-    function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max", linearEditDistanceModel=nothing)
+    function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max", calibrationModel=nothing)
         n = size(distanceMatrix)[1]
         # Get average estimation error
         predDistanceArray = []
@@ -291,14 +291,14 @@ module Utils
         end
 
         # Fit a linear model
-        if isnothing(linearEditDistanceModel)
-            linearEditDistanceModel = Lathe.models.LinearLeastSquare(
+        if isnothing(calibrationModel)
+            calibrationModel = Lathe.models.LinearLeastSquare(
                 predDistanceArray,
                 trueDistanceArray,
             )
         end
 
-        calibratedPredictedDistanceArray = linearEditDistanceModel.predict(predDistanceArray)
+        calibratedPredictedDistanceArray = calibrationModel.predict(predDistanceArray)
 
 
         meanAbsError = mean(absErrorArray)
@@ -310,9 +310,9 @@ module Utils
         # Plot the true/predicted estimation error
         saveDir = joinpath(plotsSavePath, "true_vs_pred_edit_distance")
         mkpath(saveDir)
-        fig = plot(scatter(calibratedPredictedDistanceArray, predDistanceArray, title="true_vs_calibrated_pred_edit_distance", xlabel="true-edit-distance", ylabel="calibrated-predicted-edit-distance"))
+        fig = plot(scatter(trueDistanceArray, [predDistanceArray, calibratedPredictedDistanceArray], label=["pred" "calibrated-pred"], title="Edit distanance predictions"))
         savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
-        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, linearEditDistanceModel
+        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel
     end
 
 
@@ -361,7 +361,7 @@ module Utils
         timeGetEstimationError = @elapsed begin
             # Obtain estimation error
             meanAbsError, maxAbsError, minAbsError,
-            totalAbsError, meanEstimationError, linearEditDistanceModel = getEstimationError(
+            totalAbsError, meanEstimationError, calibrationModel = getEstimationError(
                 distanceMatrix, predictedDistanceMatrix, maxStringLength,
                 estErrorN=estErrorN, plotsSavePath=plotsSavePath, identifier=identifier,
                 distanceMatrixNormMethod=distanceMatrixNormMethod
@@ -379,7 +379,7 @@ module Utils
         @printf("Time to compute pred distance matrix: %s \n", timeGetPredictedDistanceMatrix)
         @printf("Time to get recall at K: %s \n", timeGetRecallAtK)
         @printf("Time to get error estimation: %s \n", timeGetEstimationError)
-        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict, linearEditDistanceModel
+        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict, calibrationModel
     end
     anynan(x) = any(y -> any(isnan, y), x)
 end

@@ -42,7 +42,7 @@ module ExperimentParams
         USE_WORD_DATASET=false
 
         # Distance matrix normalization metho
-        DISTANCE_MATRIX_NORM_METHOD="mean"
+        DISTANCE_MATRIX_NORM_METHOD="max"
 
         ###############
         # Model Arch
