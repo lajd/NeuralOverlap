@@ -213,11 +213,11 @@ end
 function getTrainingSequences(args)
     # Generate sequences
     if args.USE_SYNTHETIC_DATA == true
-    trainingSequences = SyntheticDataset.generateSequences(
-        args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH,
-        args.MAX_STRING_LENGTH, args.ALPHABET, ratioOfRandom=args.RATIO_OF_RANDOM_SAMPLES,
-        similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
-    )
+        trainingSequences = SyntheticDataset.generateSequences(
+            args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH,
+            args.MAX_STRING_LENGTH, args.ALPHABET, ratioOfRandom=args.RATIO_OF_RANDOM_SAMPLES,
+            similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
+        )
     elseif args.USE_SEQUENCE_DATA == true
         trainingSequences = SequenceDataset.getReadSequenceData(args.NUM_TRAINING_EXAMPLES)
     elseif args.USE_WORD_DATASET == true
