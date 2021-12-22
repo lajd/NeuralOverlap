@@ -219,7 +219,7 @@ function getTrainingSequences(args)
             similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
         )
     elseif args.USE_SEQUENCE_DATA == true
-        trainingSequences = SequenceDataset.getReadSequenceData(args.NUM_TRAINING_EXAMPLES)
+        trainingSequences = SequenceDataset.getReadSequenceData(args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH)
     elseif args.USE_WORD_DATASET == true
         trainingSequences = Words.getWords()
     else
@@ -238,7 +238,7 @@ function getEvaluationSequences(args)
             similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
             )
     elseif args.USE_SEQUENCE_DATA == true
-        evalSequences = SequenceDataset.getReadSequenceData(args.NUM_EVAL_EXAMPLES)
+        evalSequences = SequenceDataset.getReadSequenceData(args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH)
     else
         throw("Must provide type of dataset")
     end
@@ -269,8 +269,8 @@ ExperimentArgs = [
         NUM_TRAINING_EXAMPLES=20000,
         NUM_EVAL_EXAMPLES=5000,
         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
-        USE_SYNTHETIC_DATA=true,
-        USE_SEQUENCE_DATA=false,
+        USE_SYNTHETIC_DATA=false,
+        USE_SEQUENCE_DATA=true,
     ),
 ]
 

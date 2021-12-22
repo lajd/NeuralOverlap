@@ -69,9 +69,9 @@ version = "4.0.4"
 
 [[Blosc]]
 deps = ["Blosc_jll"]
-git-tree-sha1 = "217da19d6f3a94753e580a8bc241c7cbefd9281f"
+git-tree-sha1 = "575bdd70552dd9a7eaeba08ef2533226cdc50779"
 uuid = "a74b3585-a348-5f62-a45c-50e91977d574"
-version = "0.7.1"
+version = "0.7.2"
 
 [[Blosc_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Lz4_jll", "Pkg", "Zlib_jll", "Zstd_jll"]
@@ -104,9 +104,9 @@ version = "2.6.3"
 
 [[Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "f2202b55d816427cd385a9a4f3ffb226bee80f99"
+git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
-version = "1.16.1+0"
+version = "1.16.1+1"
 
 [[CategoricalArrays]]
 deps = ["DataAPI", "Future", "JSON", "Missings", "Printf", "Statistics", "StructTypes", "Unicode"]
@@ -410,9 +410,9 @@ version = "0.21.0+0"
 
 [[Glib_jll]]
 deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "74ef6288d071f58033d54fd6708d4bc23a8b8972"
+git-tree-sha1 = "a32d672ac2c967f3deb8a81d828afc739c838a06"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
-version = "2.68.3+1"
+version = "2.68.3+2"
 
 [[Graphite2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -505,15 +505,15 @@ version = "1.0.0"
 
 [[JLD]]
 deps = ["Compat", "FileIO", "HDF5", "Printf"]
-git-tree-sha1 = "1a04b714ed3d0392988fa377ddb1db1291195fec"
+git-tree-sha1 = "390ed210fcbdaffde2efe7890f39bd1e681a62d7"
 uuid = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
-version = "0.12.4"
+version = "0.12.5"
 
 [[JLD2]]
 deps = ["DataStructures", "FileIO", "MacroTools", "Mmap", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
-git-tree-sha1 = "46b7834ec8165c541b0b5d1c8ba63ec940723ffb"
+git-tree-sha1 = "5335c4c9a30b4b823d1776d2db09882cbfac9f1e"
 uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-version = "0.4.15"
+version = "0.4.16"
 
 [[JLLWrappers]]
 deps = ["Preferences"]
@@ -652,14 +652,14 @@ uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.36.0+0"
 
 [[LinearAlgebra]]
-deps = ["Libdl", "libblastrampoline_jll"]
+deps = ["Libdl"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "be9eef9f9d78cecb6f262f3c10da151a6c5ab827"
+git-tree-sha1 = "e5718a00af0ab9756305a0392832c8952c7426c1"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.5"
+version = "0.3.6"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -732,9 +732,9 @@ uuid = "15e1cf62-19b3-5cfa-8e77-841668bca605"
 version = "0.4.1"
 
 [[NaNMath]]
-git-tree-sha1 = "bfe47e760d60b82b66b61d2d44128b62e3a369fb"
+git-tree-sha1 = "f755f36b19a5116bb580de457cda0c140153f283"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
-version = "0.3.5"
+version = "0.3.6"
 
 [[NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -744,10 +744,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "7937eda4681660b4d6aeeecc2f7e1c81c8ee4e2f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+0"
-
-[[OpenBLAS_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
-uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
 
 [[OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -796,9 +792,9 @@ version = "0.12.3"
 
 [[Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "ae4bbcadb2906ccc085cf52ac286dc1377dceccc"
+git-tree-sha1 = "d7fa6237da8004be601e19bd6666083056649918"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.1.2"
+version = "2.1.3"
 
 [[Pixman_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -871,7 +867,7 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[Random]]
-deps = ["SHA", "Serialization"]
+deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[RealDot]]
@@ -1279,10 +1275,6 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "HarfBuzz_jll"
 git-tree-sha1 = "5982a94fcba20f02f42ace44b9894ee2b140fe47"
 uuid = "0ac62f75-1d6f-5e53-bd7c-93b484bb37c0"
 version = "0.15.1+0"
-
-[[libblastrampoline_jll]]
-deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
-uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
 
 [[libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
