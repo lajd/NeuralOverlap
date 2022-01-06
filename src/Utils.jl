@@ -202,23 +202,27 @@ module Utils
             end
         end
 
-        # Create recall-item plots
+        # Create a single recall-item plot containing topN curves
+        averageRecallDict = Dict()
         for (topNRecallAtK, averageRecallAtKDict) in recallDict
-            kArray = []
             recallAtKArray = []
             # Sort the keys
             sortedK = sort(collect(keys(averageRecallAtKDict)))
             for k in sortedK
                 averageRecallAtK = averageRecallAtKDict[k]
                 push!(recallAtKArray, averageRecallAtK)
-                push!(kArray, k)
             end
-            # Save a plot to a new directory
-            saveDir = joinpath(plotsSavePath, topNRecallAtK)
-            mkpath(saveDir)
-            fig = plot(kArray, recallAtKArray, title=topNRecallAtK, xlabel="# Items", ylabel="Recall", label=["Recall"])
-            savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
+            averageRecallDict[topNRecallAtK] = recallAtKArray
         end
+        
+        # Save a plot to a new directory
+        saveDir = joinpath(plotsSavePath, "recall_at_k")
+        mkpath(saveDir)
+        fig = plot(kValues, [averageRecallDict["top1Recall"], averageRecallDict["top10Recall"], averageRecallDict["top50Recall"],
+            averageRecallDict["top100Recall"]], label=["top1Recall" "top10Recall" "top50Recall" "top100Recall"],
+            title=string("Average recall at K of ", length(idSeqDataMap), "samples"))
+        savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
+        
         return recallDict
     end
 

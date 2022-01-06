@@ -251,10 +251,10 @@ end
 ExperimentArgs = [
     ExperimentParams.ExperimentArgs(
         NUM_EPOCHS=128,
-        NUM_BATCHES=512,  #
+        NUM_BATCHES=8,  #
         NUM_NNS=200,
         MAX_STRING_LENGTH=64,
-        BSIZE=512,
+        BSIZE=128,
         NUM_INTERMEDIATE_CONV_LAYERS=4,
         CONV_ACTIVATION=identity,
         WITH_INPUT_BATCHNORM=false,
@@ -268,8 +268,8 @@ ExperimentArgs = [
         POOLING_METHOD="mean",
         DISTANCE_METHOD="l2",
         GRADIENT_CLIP_VALUE=nothing,
-        NUM_TRAINING_EXAMPLES=5000,
-        NUM_EVAL_EXAMPLES=5000,
+        NUM_TRAINING_EXAMPLES=1000,
+        NUM_EVAL_EXAMPLES=1000,
         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
         USE_SYNTHETIC_DATA=true,
         USE_SEQUENCE_DATA=false,
