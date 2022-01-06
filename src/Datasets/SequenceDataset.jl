@@ -19,7 +19,8 @@ module SequenceDataset
     using Printf
 
 
-    function getReadSequenceData(maxSequences, maxSeqLen; fastqFilePath="/Users/jonathan/PycharmProjects/NeuralOverlap/data/raw_data/phis174_simulated_reads.fa_R1.fastq")
+
+    function getReadSequenceData(maxSequences, maxSeqLen; fastqFilePath="/home/jon/PycharmProjects/NeuralOverlap/data_fetch/phis174_simulated_reads.fa_R1.fastq")
         reader = open(FASTQ.Reader, fastqFilePath)
         i = 0
         local data

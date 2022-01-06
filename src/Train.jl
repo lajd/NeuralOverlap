@@ -30,7 +30,6 @@ using Debugger
 using Plots
 
 using Printf
-using TimerOutputs
 using JLD2
 using FileIO
 
@@ -93,6 +92,9 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                 epochBatchChannel = Channel( (channel) -> trainDataHelper.batchTuplesProducer(channel, nbs, args.BSIZE, DEVICE), maxChannelSize)
             end
             for (ids_and_reads, tensorBatch) in epochBatchChannel
+                timeSpentFetchingData += @elapsed begin
+                    tensorBatch = tensorBatch |> DEVICE
+                end
                 timeSpentForward += @elapsed begin
                     gs = gradient(params(model)) do
                         rankLoss, embeddingLoss, fullLoss = Model.tripletLoss(
@@ -248,12 +250,12 @@ end
 
 ExperimentArgs = [
     ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=100,
-        NUM_BATCHES=256,  #
-        NUM_NNS=100,
+        NUM_EPOCHS=128,
+        NUM_BATCHES=512,  #
+        NUM_NNS=200,
         MAX_STRING_LENGTH=64,
-        BSIZE=64,
-        NUM_INTERMEDIATE_CONV_LAYERS=3,
+        BSIZE=512,
+        NUM_INTERMEDIATE_CONV_LAYERS=4,
         CONV_ACTIVATION=identity,
         WITH_INPUT_BATCHNORM=false,
         WITH_BATCHNORM=true,
@@ -266,11 +268,11 @@ ExperimentArgs = [
         POOLING_METHOD="mean",
         DISTANCE_METHOD="l2",
         GRADIENT_CLIP_VALUE=nothing,
-        NUM_TRAINING_EXAMPLES=20000,
+        NUM_TRAINING_EXAMPLES=5000,
         NUM_EVAL_EXAMPLES=5000,
         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
-        USE_SYNTHETIC_DATA=false,
-        USE_SEQUENCE_DATA=true,
+        USE_SYNTHETIC_DATA=true,
+        USE_SEQUENCE_DATA=false,
     ),
 ]
 

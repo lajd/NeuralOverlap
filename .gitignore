@@ -12,9 +12,11 @@
 # Versioning
 npm-debug.log
 dump.rdb
+.CondaPkg
 
 # Plots
 *.png
 
 # Models
 data
+deprecated

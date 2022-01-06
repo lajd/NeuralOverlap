@@ -86,7 +86,7 @@ module ExperimentParams
         # Loss scaling
         L0rank = 1.
         L0emb = 0.1
-        _N_LOSS_STEPS = Int32(NUM_EPOCHS / 5)
+        _N_LOSS_STEPS = Int32(floor(NUM_EPOCHS / 5))
         LOSS_STEPS_DICT = Dict(
             _N_LOSS_STEPS * 0 => (0., 10.),
             _N_LOSS_STEPS * 1 => (10., 10.),
@@ -107,18 +107,14 @@ module ExperimentParams
         # Experiment
         ################
         MODEL_SAVE_SUFFIX = "_synthetic.bson"
-        EXPERIMENT_NAME = stringFromParameters(
-            [NUM_INTERMEDIATE_CONV_LAYERS, NUM_FC_LAYERS, FC_ACTIVATION, CONV_ACTIVATION,
-             WITH_INPUT_BATCHNORM, WITH_BATCHNORM, WITH_DROPOUT, POOLING_METHOD, POOL_KERNEL,
-             OUT_CHANNELS, KERNEL_SIZE, EMBEDDING_DIM, DISTANCE_METHOD, NUM_TRAINING_EXAMPLES,
-             NUM_EVAL_EXAMPLES, NUM_BATCHES, now()]
-        )
+        EXPERIMENT_NAME = stringFromParameters([now()])
         EXPERIMENT_DIR = joinpath("data/experiments", EXPERIMENT_NAME)
         MODEL_SAVE_DIR = joinpath(EXPERIMENT_DIR, "saved_models")
         DATASET_SAVE_PATH = joinpath(EXPERIMENT_DIR, "dataset.jld")
         PLOTS_SAVE_DIR = joinpath(EXPERIMENT_DIR, "saved_plots")
         CONSTANTS_SAVE_PATH = joinpath(EXPERIMENT_DIR, "constants.txt")
     end
+
 
     function dumpArgs(args, savePath)
         open(savePath, "a") do f
