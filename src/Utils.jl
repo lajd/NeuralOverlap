@@ -222,8 +222,9 @@ module Utils
         # Save a plot to a new directory
         saveDir = joinpath(plotsSavePath, "recall_at_k")
         mkpath(saveDir)
-        fig = plot(kValues, [averageRecallDict["top1Recall"], averageRecallDict["top10Recall"], averageRecallDict["top50Recall"],
-            averageRecallDict["top100Recall"]], label=["top1Recall" "top10Recall" "top50Recall" "top100Recall"],
+        fig = plot(kValues, [averageRecallDict["top1Recall"], averageRecallDict["top5Recall"],
+            averageRecallDict["top10Recall"], averageRecallDict["top25Recall"], averageRecallDict["top50Recall"],
+            averageRecallDict["top100Recall"]], label=["top1Recall" "top5Recall" "top10Recall" "top25Recall" "top50Recall" "top100Recall"],
             title=string("Average recall at K of ", length(idSeqDataMap), "samples"))
         savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
         
