@@ -2,11 +2,19 @@
 
 ## Installation
 
-````shell script
+### (Optional) Installing Julia with Conda
+```shell script
 conda create -n NeuralOverlap python=3.9
 conda activate NeuralOverlap
 conda install -c conda-forge julia
-````
+```
+
+### Installing the package
+```shell script
+] activate .
+] instantiate
+] precompile
+```
 
 
 # Introduction

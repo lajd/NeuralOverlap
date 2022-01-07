@@ -29,7 +29,7 @@ module SyntheticDataset
         sequenceSet = Set()
 
         # Core samples from which the rest are based off of
-        for i in 1:Int(numSequences*ratioOfRandom)
+        for i in 1:Int(floor(numSequences*ratioOfRandom))
             n = rand(minSequenceLength:maxSequenceLength)
             push!(coreSequenceSet, randstring(alphabet, n))
         end
