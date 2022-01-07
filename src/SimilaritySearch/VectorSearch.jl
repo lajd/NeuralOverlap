@@ -1,6 +1,6 @@
 
 
-module Quantization
+module VectorSearch
 
     using Faiss
 

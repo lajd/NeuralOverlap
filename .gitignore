@@ -9,10 +9,13 @@
 *.terraform
 *.out
 **/.pytest_cache
+
+*.fastq
 # Versioning
 npm-debug.log
 dump.rdb
 .CondaPkg
+*.fa*.txt
 
 # Plots
 *.png

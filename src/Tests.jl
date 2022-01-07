@@ -253,7 +253,7 @@ end
             expectedRecall = [1/20, 1/20, 2/20, 3/20, 4/20, 5/20, 6/20, 6/20, 7/20, 7/20]
             actualKNN = Array(1:10)
             for k in 1:10
-                @assert isapprox(Utils.recallTopTAtKpredKNN, actualKNN;T=t, K=k), expectedRecall[k])
+                @assert isapprox(Utils.recallTopTAtKpredKNN(actualKNN;T=t, K=k), expectedRecall[k])
             end
         end
     end

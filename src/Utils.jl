@@ -173,7 +173,9 @@ module Utils
         kValues = [k for k in range(kStart, kEnd + 1, step=kStep)]
         recallDict = Dict(
             "top1Recall" => Dict([(k, 0.) for k in kValues]),
+            "top5Recall" => Dict([(k, 0.) for k in kValues]),
             "top10Recall" => Dict([(k, 0.) for k in kValues]),
+            "top25Recall" => Dict([(k, 0.) for k in kValues]),
             "top50Recall" => Dict([(k, 0.) for k in kValues]),
             "top100Recall" => Dict([(k, 0.) for k in kValues])
         )
@@ -189,7 +191,9 @@ module Utils
 
                 @assert length(predicted_knns) == length(actual_knns)
                 recallDict["top1Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=1, K=k)
+                recallDict["top5Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=5, K=k)
                 recallDict["top10Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=10, K=k)
+                recallDict["top25Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=25, K=k)
                 recallDict["top50Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=50, K=k)
                 recallDict["top100Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=100, K=k)
             end
@@ -266,6 +270,8 @@ module Utils
             denormFactor = maxStringLength
         elseif distanceMatrixNormMethod == "mean"
             denormFactor = mean(distanceMatrix)
+        else
+            throw("Invalidate distanceMatrixNormMethod")
         end
 
         for _ in 1:estErrorN
@@ -381,5 +387,6 @@ module Utils
         @printf("Time to get error estimation: %s \n", timeGetEstimationError)
         return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict, calibrationModel
     end
+    
     anynan(x) = any(y -> any(isnan, y), x)
 end

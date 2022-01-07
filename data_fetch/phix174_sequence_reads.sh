@@ -1,4 +1,5 @@
-curl https://www.ncbi.nlm.nih.gov/nuccore/NC_001422.1?report=fasta
+# Dataset is downloaded from the following URL
+# https://www.ncbi.nlm.nih.gov/nuccore/NC_001422.1?report=fasta
 
 pip install InSilicoSeq
 
