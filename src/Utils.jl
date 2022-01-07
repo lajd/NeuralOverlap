@@ -164,7 +164,7 @@ module Utils
         return recall
     end
 
-    function getTopTRecallAtK(idSeqDataMap, distanceMatrix, predictedDistanceMatrix; plotsSavePath=".", identifier="", numNN=100, kStart=1, kEnd=100, kStep=10)
+    function getTopTRecallAtK(idSeqDataMap, predictedDistanceMatrix; plotsSavePath=".", identifier="", numNN=100, kStart=1, kEnd=100, kStep=10)
         n = length(idSeqDataMap)
 
         numNN = min(n, numNN)
@@ -225,7 +225,10 @@ module Utils
         fig = plot(kValues, [averageRecallDict["top1Recall"], averageRecallDict["top5Recall"],
             averageRecallDict["top10Recall"], averageRecallDict["top25Recall"], averageRecallDict["top50Recall"],
             averageRecallDict["top100Recall"]], label=["top1Recall" "top5Recall" "top10Recall" "top25Recall" "top50Recall" "top100Recall"],
-            title=string("Average recall at K of ", length(idSeqDataMap), "samples"))
+            title=string("Average recall at K of ", length(idSeqDataMap), " samples"), 
+            xlabel="Number of items",
+            ylabel="Recall"
+            )
         savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
         
         return recallDict
@@ -262,23 +265,58 @@ module Utils
         return E
     end
 
-    function getEstimationError(distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max", calibrationModel=nothing)
-        n = size(distanceMatrix)[1]
-        # Get average estimation error
+    function _getEstimationErrorAndPlot(predDistanceArray, trueDistanceArray, plotsSavePath, identifier; calibrationModel=nothing, estimationErrorIdentifier="")
+        absErrorArray = [abs(i - j) for (i, j) in zip(predDistanceArray, trueDistanceArray)]
+        estimationErrorArray = [absError / trueDist for (absError, trueDist) in zip(absErrorArray, trueDistanceArray)]
+        # Fit a linear model mapping predicted distances to the true distances
+        if isnothing(calibrationModel)
+            calibrationModel = Lathe.models.LinearLeastSquare(
+                predDistanceArray,
+                trueDistanceArray,
+            )
+        end
+        
+        # Apply calibration model to the predicted distances
+        calibratedPredictedDistanceArray = calibrationModel.predict(predDistanceArray)
+        
+        meanAbsError = mean(absErrorArray)
+        maxAbsError = maximum(absErrorArray)
+        minAbsError = minimum(absErrorArray)
+        totalAbsError = sum(absErrorArray)
+        meanEstimationError = mean(estimationErrorArray)
+        
+        # Plot the true/predicted estimation error
+        saveDir = joinpath(plotsSavePath, "true_vs_pred_edit_distance")
+        mkpath(saveDir)
+        fig = plot(scatter(trueDistanceArray, [predDistanceArray, calibratedPredictedDistanceArray],
+            label=["pred" "calibrated-pred"],
+            title="Edit distanance predictions"),
+            xlabel="true edit distance",
+            ylabel="predicted edit distance",
+            xlims=(0, Inf),
+            ylims=(0, Inf)
+        )
+
+        # Add the line y=x to the figure for reference
+        plot!(fig, trueDistanceArray, trueDistanceArray)
+        
+        savefig(fig, joinpath(saveDir, string("epoch", "_", identifier, estimationErrorIdentifier,  ".png")))
+        
+        @printf("---------------%s--------------\n", estimationErrorIdentifier)
+        @printf("Mean Absolute Error is %s \n", round(meanAbsError, digits=4))
+        @printf("Max Absolute Error is %s \n", round(maxAbsError, digits=4))
+        @printf("Min abs error is %s \n", round(minAbsError, digits=4))
+        @printf("Total abs error is %s \n", round(totalAbsError, digits=4))
+        @printf("Mean relative estimation error is %s \n", round(meanEstimationError, digits=4))   
+        @printf("-------------------------------\n")     
+        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel
+
+    end
+
+    function _getRandomlySampledTruePredDistances(distanceMatrix, predictedDistanceMatrix, n, estErrorN, denormFactor)
         predDistanceArray = []
         trueDistanceArray = []
-
-        absErrorArray = []
-        estimationErrorArray = []
-        
-        if distanceMatrixNormMethod == "max"
-            denormFactor = maxStringLength
-        elseif distanceMatrixNormMethod == "mean"
-            denormFactor = mean(distanceMatrix)
-        else
-            throw("Invalidate distanceMatrixNormMethod")
-        end
-
+        # Randomly sample pairs and obtain true distance
         for _ in 1:estErrorN
             local trueDist = 0
             local id1 = id2 = nothing
@@ -292,37 +330,62 @@ module Utils
 
             push!(predDistanceArray, predDist)
             push!(trueDistanceArray, trueDist)
-
-            absError = abs(predDist - trueDist)
-            push!(absErrorArray, absError)
-
-            estimationError = absError / trueDist
-            push!(estimationErrorArray, estimationError)
-
         end
+        return trueDistanceArray, predDistanceArray
+    end
 
-        # Fit a linear model
-        if isnothing(calibrationModel)
-            calibrationModel = Lathe.models.LinearLeastSquare(
-                predDistanceArray,
-                trueDistanceArray,
-            )
+    function _getNNSampledTruePredDistances(idSeqDataMap, distanceMatrix, predictedDistanceMatrix, n, estErrorN, denormFactor; startIndex=2)
+
+        numNNsPerSample = 5
+
+        predDistanceArray = []
+        trueDistanceArray = []
+        # Randomly sample pairs and obtain true distance
+        for id1 in 1:n
+            actual_knns = idSeqDataMap[id1]["k100NN"][startIndex:numNNsPerSample]
+            for id2 in actual_knns
+                trueDist = distanceMatrix[id1, id2] * denormFactor
+                predDist = predictedDistanceMatrix[id1, id2] * denormFactor
+                push!(predDistanceArray, predDist)
+                push!(trueDistanceArray, trueDist)
+            end
         end
+        
+        trueDistanceArray = trueDistanceArray[1: estErrorN]
+        predDistanceArray = predDistanceArray[1: estErrorN]
 
-        calibratedPredictedDistanceArray = calibrationModel.predict(predDistanceArray)
+        return trueDistanceArray, predDistanceArray
+    end
 
+    function getEstimationError(idSeqDataMap, distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max", calibrationModel=nothing)
+        n = size(distanceMatrix)[1]
+        
+        if distanceMatrixNormMethod == "max"
+            denormFactor = maxStringLength
+        elseif distanceMatrixNormMethod == "mean"
+            denormFactor = mean(distanceMatrix)
+        else
+            throw("Invalidate distanceMatrixNormMethod")
+        end
+        
+        # Randomly sample pairs and obtain true distance
+        trueDistanceArray, predDistanceArray = _getRandomlySampledTruePredDistances(distanceMatrix, predictedDistanceMatrix, n, estErrorN, denormFactor)
+        
+        meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel = _getEstimationErrorAndPlot(
+            predDistanceArray, trueDistanceArray, plotsSavePath, identifier, calibrationModel=nothing, estimationErrorIdentifier="_random_samples"
+        )
 
-        meanAbsError = mean(absErrorArray)
-        maxAbsError = maximum(absErrorArray)
-        minAbsError = minimum(absErrorArray)
-        totalAbsError = sum(absErrorArray)
-        meanEstimationError = mean(estimationErrorArray)
+        # Now consider only N samples pairs that are nearest, and recalibrate. Since we are predominantly interested
+        # in accurately predicting nearest neighbours, this is a useful data point. Here we sample estErrorN from the N nearest
+        # neighbours for each point.
+        trueDistanceArrayNNSampled, predDistanceArrayNNSampled = _getNNSampledTruePredDistances(
+            idSeqDataMap, distanceMatrix, predictedDistanceMatrix, n, estErrorN, denormFactor
+        )
 
-        # Plot the true/predicted estimation error
-        saveDir = joinpath(plotsSavePath, "true_vs_pred_edit_distance")
-        mkpath(saveDir)
-        fig = plot(scatter(trueDistanceArray, [predDistanceArray, calibratedPredictedDistanceArray], label=["pred" "calibrated-pred"], title="Edit distanance predictions"))
-        savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
+        meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel = _getEstimationErrorAndPlot(
+            predDistanceArrayNNSampled, trueDistanceArrayNNSampled, plotsSavePath, identifier, calibrationModel=nothing, estimationErrorIdentifier="_sampled_nns"
+        )
+        
         return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel
     end
 
@@ -363,7 +426,7 @@ module Utils
         timeGetRecallAtK = @elapsed begin
             # Obtain the recall dictionary for each T value, for each K value
             recallDict = getTopTRecallAtK(
-                idSeqDataMap, distanceMatrix, predictedDistanceMatrix,
+                idSeqDataMap, predictedDistanceMatrix,
                 plotsSavePath=plotsSavePath, identifier=identifier, numNN=numNN,
                 kStart=kStart, kEnd=kEnd, kStep=kStep
             )
@@ -373,19 +436,14 @@ module Utils
             # Obtain estimation error
             meanAbsError, maxAbsError, minAbsError,
             totalAbsError, meanEstimationError, calibrationModel = getEstimationError(
-                distanceMatrix, predictedDistanceMatrix, maxStringLength,
+                idSeqDataMap, distanceMatrix, predictedDistanceMatrix, maxStringLength,
                 estErrorN=estErrorN, plotsSavePath=plotsSavePath, identifier=identifier,
                 distanceMatrixNormMethod=distanceMatrixNormMethod
             )
         end
 
         # Log results
-        @printf("Mean Absolute Error is %s \n", round(meanAbsError, digits=4))
-        @printf("Max Absolute Error is %s \n", round(maxAbsError, digits=4))
-        @printf("Min abs error is %s \n", round(minAbsError, digits=4))
-        @printf("Total abs error is %s \n", round(totalAbsError, digits=4))
-        @printf("Mean estimation error is %s \n", round(meanEstimationError, digits=4))
-        @printf("Number of triplets compared for error estimation %s \n", estErrorN)
+
         @printf("Time to embed sequences: %s \n", timeEmbedSequences)
         @printf("Time to compute pred distance matrix: %s \n", timeGetPredictedDistanceMatrix)
         @printf("Time to get recall at K: %s \n", timeGetRecallAtK)

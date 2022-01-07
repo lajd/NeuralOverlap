@@ -5,7 +5,6 @@ include("./src/Model.jl")
 include("./src/Datasets/Dataset.jl")
 include("./src/Datasets/SyntheticDataset.jl")
 include("./src/Datasets/SequenceDataset.jl")
-include("./src/Datasets/Words.jl")
 
 # include("./args.jl")
 # include("./Utils.jl")
@@ -29,6 +28,8 @@ using JLD2
 using Debugger
 using Plots
 
+using Random
+
 using Printf
 using JLD2
 using FileIO
@@ -40,7 +41,6 @@ using .Model
 using .Dataset
 using .SyntheticDataset
 using .SequenceDataset
-using .Words
 
 
 try
@@ -151,8 +151,8 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                             evalDataHelper, model, args.MAX_STRING_LENGTH, numNN=args.NUM_NNS,
                             plotsSavePath=args.PLOTS_SAVE_DIR, identifier=epoch,
                             distanceMatrixNormMethod=args.DISTANCE_MATRIX_NORM_METHOD,
-                            kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP
-
+                            kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP, 
+                            estErrorN=args.EST_ERROR_N
                         )
 
                         push!(meanAbsEvalErrorArray, meanAbsEvalError)
@@ -194,13 +194,10 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                                 emeddingModelCPU = model |> cpu
 
                                 # Save the linear calibration model
-                                calibrationModelName = string("calibration_lin", "epoch_", epoch,  args.MODEL_SAVE_SUFFIX)
-
                                 modelName = string("epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError, args.MODEL_SAVE_SUFFIX)
 
                                JLD2.save(joinpath(args.MODEL_SAVE_DIR, string(modelName, ".jld2")), "embedding_model", emeddingModelCPU)
                                JLD2.save(joinpath(args.MODEL_SAVE_DIR, string(modelName, ".jld2")), "distance_calibration_model", linearEditDistanceModel)
-                               #@save joinpath(args.MODEL_SAVE_DIR, calibrationModelName) linearEditDistanceModel
                             end
                             @printf("Save moodel time %s\n", SaveModelTime)
                         end
@@ -212,39 +209,30 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
     end
 end
 
-function getTrainingSequences(args)
-    # Generate sequences
+
+function getDatasetSplit(args)
+    totalSamples = args.NUM_TRAIN_EXAMPLES + args.NUM_EVAL_EXAMPLES + args.NUM_TEST_EXAMPLES
     if args.USE_SYNTHETIC_DATA == true
-        trainingSequences = SyntheticDataset.generateSequences(
-            args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH,
+        allSequences = SyntheticDataset.generateSequences(
+            totalSamples, args.MAX_STRING_LENGTH,
             args.MAX_STRING_LENGTH, args.ALPHABET, ratioOfRandom=args.RATIO_OF_RANDOM_SAMPLES,
-            similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
-        )
-    elseif args.USE_SEQUENCE_DATA == true
-        trainingSequences = SequenceDataset.getReadSequenceData(args.NUM_TRAINING_EXAMPLES, args.MAX_STRING_LENGTH)
-    elseif args.USE_WORD_DATASET == true
-        trainingSequences = Words.getWords()
-    else
-        throw("Must provide type of dataset")
-    end
-    return trainingSequences
-end
-
-
-function getEvaluationSequences(args)
-    # Evaluation dataset
-    if args.USE_SYNTHETIC_DATA == true
-        evalSequences = SyntheticDataset.generateSequences(
-            args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH,
-            args.MAX_STRING_LENGTH, args.ALPHABET,ratioOfRandom=args.RATIO_OF_RANDOM_SAMPLES,
             similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
             )
     elseif args.USE_SEQUENCE_DATA == true
-        evalSequences = SequenceDataset.getReadSequenceData(args.NUM_EVAL_EXAMPLES, args.MAX_STRING_LENGTH)
+        allSequences = SequenceDataset.getReadSequenceData(totalSamples, args.MAX_STRING_LENGTH)
     else
-        throw("Must provide type of dataset")
+        throw("Must provide a valid dataset type")
     end
-    return evalSequences
+
+    # Randomly split into train/val/test
+    shuffle!(allSequences)
+
+    trainSequences = allSequences[1: args.NUM_TRAIN_EXAMPLES]
+    numTrainEval = args.NUM_TRAIN_EXAMPLES + args.NUM_EVAL_EXAMPLES
+    valSequences = allSequences[args.NUM_TRAIN_EXAMPLES: numTrainEval]
+    testSequences = allSequences[numTrainEval: end]
+    return trainSequences, valSequences, testSequences
+
 end
 
 
@@ -268,14 +256,13 @@ ExperimentArgs = [
         POOLING_METHOD="mean",
         DISTANCE_METHOD="l2",
         GRADIENT_CLIP_VALUE=nothing,
-        NUM_TRAINING_EXAMPLES=10000,
-        NUM_EVAL_EXAMPLES=5000,
-        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
+        NUM_TRAIN_EXAMPLES=1000,
+        NUM_EVAL_EXAMPLES=1000,
+        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
         USE_SYNTHETIC_DATA=true,
         USE_SEQUENCE_DATA=false,
     ),
 ]
-
 
 
 ########
@@ -320,10 +307,10 @@ for args in ExperimentArgs
             withBatchnorm=args.WITH_BATCHNORM, withInputBatchnorm=args.WITH_INPUT_BATCHNORM,
             withDropout=args.WITH_DROPOUT, c=args.OUT_CHANNELS, k=args.KERNEL_SIZE,
             poolingMethod=args.POOLING_METHOD
-         ) |> DEVICE
-        
-         # Training dataset
-         trainingSequences = getTrainingSequences(args)
+        ) |> DEVICE
+
+        # Get dataset split
+        trainingSequences, evalSequences, testSequences =  getDatasetSplit(args)
         
         # Training dataset
         trainDatasetHelper = Dataset.DatasetHelper(
@@ -337,8 +324,6 @@ for args in ExperimentArgs
         batchDict = trainDatasetHelper.getTripletBatch(args.BSIZE)
         Dataset.plotTripletBatchDistances(batchDict, args.PLOTS_SAVE_DIR)
 
-        # Evaluation dataset
-        evalSequences = getEvaluationSequences(args)
 
         evalDatasetHelper = Dataset.DatasetHelper(
             evalSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,

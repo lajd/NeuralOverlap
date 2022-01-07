@@ -23,8 +23,11 @@ module ExperimentParams
         MAX_STRING_LENGTH = 128
         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked"  # ranked, uniform
 
-        NUM_TRAINING_EXAMPLES = 10000
+        NUM_TRAIN_EXAMPLES = 10000
         NUM_EVAL_EXAMPLES = 1000
+        NUM_TEST_EXAMPLES = 1000
+
+        EST_ERROR_N = 1000
 
         # Synthetic dataset
         USE_SYNTHETIC_DATA=true
@@ -37,9 +40,6 @@ module ExperimentParams
 
         # Simulated sequence dataset
         USE_SEQUENCE_DATA=false
-
-        # Words
-        USE_WORD_DATASET=false
 
         # Distance matrix normalization metho
         DISTANCE_MATRIX_NORM_METHOD="max"
