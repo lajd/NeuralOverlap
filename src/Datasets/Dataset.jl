@@ -156,12 +156,12 @@ module Dataset
             )
         end
 
-        function formatOneHotSequenceArray(Xarray)
-            n = length(Xarray)
-            Xarray = convert.(Float32, vcat(Xarray...))
-            Xarray = permutedims(Xarray, (3, 2, 1))
-            Xarray = reshape(Xarray, :, 1, n)
-            return Xarray
+        function formatOneHotSequenceArray(oneHotSequenec)
+            n = length(oneHotSequenec)
+            oneHotSequenec = convert.(Float32, vcat(oneHotSequenec...))
+            oneHotSequenec = permutedims(oneHotSequenec, (3, 2, 1))
+            oneHotSequenec = reshape(oneHotSequenec, :, 1, n)
+            return oneHotSequenec
         end
 
         function getTripletBatch(n::Int64)
@@ -286,12 +286,16 @@ module Dataset
             return oneHotBatch
     end
     
-    function oneHotBatchSequences(seqArr:: Array{String}, maxSeqLen::Int64, bSize::Int64, alphabetSymbols::Vector{Symbol})
-        embeddings = Dataset.oneHotSequences(seqArr, maxSeqLen, alphabetSymbols)
-        vpad = zeros(bSize - length(seqArr), 4, maxSeqLen)        
-        embeddings = vcat(embeddings..., vpad)
-        embeddings = convert(Array{Float32}, embeddings)
-        return embeddings
+    function oneHotBatchSequences(seqArr:: Array{String}, maxSeqLen::Int64, bSize::Int64, alphabetSymbols::Vector{Symbol}; doPad=true)
+        oneHotSeqs = Dataset.oneHotSequences(seqArr, maxSeqLen, alphabetSymbols)
+        if doPad
+            vpad = zeros(bSize - length(seqArr), length(alphabetSymbols), maxSeqLen)
+            oneHotSeqs = vcat(oneHotSeqs..., vpad)
+        else
+            oneHotSeqs = vcat(oneHotSeqs...)
+        end
+        oneHotSeqs = convert(Array{Float32}, oneHotSeqs)
+        return oneHotSeqs
     end
 
     function plotSequenceDistances(distanceMat; maxSamples = 2000, plotsSavePath=".", identifier="")

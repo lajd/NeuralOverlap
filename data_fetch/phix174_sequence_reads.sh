@@ -3,4 +3,8 @@
 
 pip install InSilicoSeq
 
-iss generate --genomes phix174.fa --model miseq --output phis174_simulated_reads.fa -n 20000
+# Train/validation
+iss generate --genomes phix174.fa --model miseq --output phis174_simulated_reads.fa -n 10000
+
+# Inference
+iss generate --genomes phix174.fa --model miseq --output phis174_simulated_reads_inference.fa -n 100000

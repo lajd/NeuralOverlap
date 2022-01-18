@@ -1,7 +1,7 @@
-# Dec 26
+# Jan 6
 - Implement eta neighbourhood search, such that only objects within an eta neighbourhood (edit distance threshold) will br returned. 
 Do this for both predicted and true, and add this as an evaluation metric. For varying distance metrics, 
 report the recall at eta.
 
-- Put recall curves in the same plot (different colours of plots).
-
+- How to select the best model? What metric to use?
+    - Estimation error across random samples, NN samples?

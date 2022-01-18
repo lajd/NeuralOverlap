@@ -44,20 +44,20 @@ module Utils
         end
     end
 
-    function getTrainingScore(modelName::String, modelSaveSuffix::String)::Float32
-        suffix = split(modelName, "_")[end - 1]
-        trainingLoss = split(suffix, modelSaveSuffix)[1]
+    function getTrainingScore(modelName::String; modelExtension=".jld2")::Float32
+        suffix = split(modelName, "_")[end]
+        trainingLoss = split(suffix, modelExtension)[1]
         return parse(Float32, trainingLoss)
     end
     
     
-    function removeOldModels(modelSaveDir::String, modelSaveSuffix::String, keepN::Int64=3)
+    function removeOldModels(modelSaveDir::String, keepN::Int64=3)
         # Remove any old models
         trainingScoreToModelNameDict = Dict()
         allModels = readdir(modelSaveDir)
     
         for modelName in allModels
-            trainingLoss = getTrainingScore(modelName, modelSaveSuffix::String)
+            trainingLoss = getTrainingScore(modelName)
             trainingScoreToModelNameDict[trainingLoss] = modelName
         end
     
@@ -71,12 +71,12 @@ module Utils
         end
     end
 
-    function getBestModelPath(modelSaveDir::String, modelSaveSuffix::String)::String
+    function getBestModelPath(modelSaveDir::String)::String
         trainingScoreToModelNameDict = Dict()
         allModels = readdir(modelSaveDir)
     
         for modelName in allModels
-            trainingLoss = getTrainingScore(modelName, modelSaveSuffix)
+            trainingLoss = getTrainingScore(modelName)
             trainingScoreToModelNameDict[trainingLoss] = modelName
         end
 
@@ -266,9 +266,8 @@ module Utils
     end
 
     function _getEstimationErrorAndPlot(predDistanceArray, trueDistanceArray, plotsSavePath, identifier; calibrationModel=nothing, estimationErrorIdentifier="")
-        absErrorArray = [abs(i - j) for (i, j) in zip(predDistanceArray, trueDistanceArray)]
-        estimationErrorArray = [absError / trueDist for (absError, trueDist) in zip(absErrorArray, trueDistanceArray)]
         # Fit a linear model mapping predicted distances to the true distances
+        # TODO: This should be fit on the training set, not the validation set
         if isnothing(calibrationModel)
             calibrationModel = Lathe.models.LinearLeastSquare(
                 predDistanceArray,
@@ -278,6 +277,10 @@ module Utils
         
         # Apply calibration model to the predicted distances
         calibratedPredictedDistanceArray = calibrationModel.predict(predDistanceArray)
+        
+        # Use the calibrated predictions for error estimation
+        absErrorArray = [abs(i - j) for (i, j) in zip(calibratedPredictedDistanceArray, trueDistanceArray)]
+        estimationErrorArray = [absError / trueDist for (absError, trueDist) in zip(absErrorArray, trueDistanceArray)]
         
         meanAbsError = mean(absErrorArray)
         maxAbsError = maximum(absErrorArray)
@@ -450,6 +453,8 @@ module Utils
         @printf("Time to get error estimation: %s \n", timeGetEstimationError)
         return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict, calibrationModel
     end
+
+    
     
     anynan(x) = any(y -> any(isnan, y), x)
 end

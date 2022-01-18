@@ -190,14 +190,16 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                                 # Save the embedding model
                                 @printf("Saving new model...\n")
                                 bestMeanAbsEvalError = meanAbsEvalError
-                                Utils.removeOldModels(args.MODEL_SAVE_DIR, args.MODEL_SAVE_SUFFIX)
+                                Utils.removeOldModels(args.MODEL_SAVE_DIR)
                                 emeddingModelCPU = model |> cpu
 
                                 # Save the linear calibration model
-                                modelName = string("epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError, args.MODEL_SAVE_SUFFIX)
+                                modelName = string("epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError)
 
-                               JLD2.save(joinpath(args.MODEL_SAVE_DIR, string(modelName, ".jld2")), "embedding_model", emeddingModelCPU)
-                               JLD2.save(joinpath(args.MODEL_SAVE_DIR, string(modelName, ".jld2")), "distance_calibration_model", linearEditDistanceModel)
+                               JLD2.save(
+                                   joinpath(args.MODEL_SAVE_DIR, string(modelName, ".jld2")),
+                                   Dict("embedding_model" => emeddingModelCPU, "distance_calibration_model" => linearEditDistanceModel)
+                               )
                             end
                             @printf("Save moodel time %s\n", SaveModelTime)
                         end
@@ -211,7 +213,7 @@ end
 
 
 function getDatasetSplit(args)
-    totalSamples = args.NUM_TRAIN_EXAMPLES + args.NUM_EVAL_EXAMPLES + args.NUM_TEST_EXAMPLES
+    totalSamples = args.NUM_TRAIN_EXAMPLES + args.NUM_EVAL_EXAMPLES
     if args.USE_SYNTHETIC_DATA == true
         allSequences = SyntheticDataset.generateSequences(
             totalSamples, args.MAX_STRING_LENGTH,
@@ -238,10 +240,10 @@ end
 
 ExperimentArgs = [
     ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=128,
+        NUM_EPOCHS=20,
         NUM_BATCHES=64,  #
-        NUM_NNS=200,
-        MAX_STRING_LENGTH=300,
+        NUM_NNS=50,
+        MAX_STRING_LENGTH=64,
         BSIZE=512,
         NUM_INTERMEDIATE_CONV_LAYERS=4,
         CONV_ACTIVATION=identity,
@@ -257,10 +259,10 @@ ExperimentArgs = [
         DISTANCE_METHOD="l2",
         GRADIENT_CLIP_VALUE=nothing,
         NUM_TRAIN_EXAMPLES=1000,
-        NUM_EVAL_EXAMPLES=1000,
+        NUM_EVAL_EXAMPLES=500,
         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-        USE_SYNTHETIC_DATA=true,
-        USE_SEQUENCE_DATA=false,
+        USE_SYNTHETIC_DATA=false,
+        USE_SEQUENCE_DATA=true,
     ),
 ]
 

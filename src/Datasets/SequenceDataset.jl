@@ -18,14 +18,19 @@ module SequenceDataset
 
     using Printf
 
-    function getReadSequenceData(maxSequences, maxSeqLen; fastqFilePath="/home/jon/PycharmProjects/NeuralOverlap/data_fetch/phis174_simulated_reads.fa_R1.fastq")
+    function getReadSequenceData(maxSequences, maxSeqLen; fastqFilePath="/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix_train.fastq")
         reader = open(FASTQ.Reader, fastqFilePath)
         sequenceSet = Set{String}()
 
         for r in reader
             ## Do something
             seq = String(sequence(r))
+
+            # Prefix
             push!(sequenceSet, seq[1:maxSeqLen])
+
+            # Suffix
+            push!(sequenceSet, seq[end - maxSeqLen + 1: end])
         end
 
         sequenceArray = collect(sequenceSet)

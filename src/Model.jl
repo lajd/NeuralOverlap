@@ -168,7 +168,7 @@ module Model
         return embeddingModel
     end
 
-    function formatOneHotSeq(x, bsize)
+    function _reshapeOneHotSeq(x, bsize)
         x = permutedims(x, (3, 2, 1))
         # View as 1d
         x = reshape(x, :, 1, bsize)
@@ -176,15 +176,15 @@ module Model
     end
 
 
-    function formatOneHotSequences(XSeq)
-        bsize = lenght(XSeq)
-        output = []
-        for x in XSeq
-            x = formatOneHotSeq(x, bsize)
-            push!(output, x)
-        end
-        return output
-    end
+    # function formatOneHotSequences(XSeq)
+    #     bsize = length(XSeq)
+    #     output = []
+    #     for x in XSeq
+    #         x = _reshapeOneHotSeq(x, bsize)
+    #         push!(output, x)
+    #     end
+    #     return output
+    # end
 
     function tripletLoss(args, Xacr::ArrayType, Xpos::ArrayType,
          Xneg::ArrayType, y12::ArrayType, y13::ArrayType,

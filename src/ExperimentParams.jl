@@ -106,7 +106,6 @@ module ExperimentParams
         ################
         # Experiment
         ################
-        MODEL_SAVE_SUFFIX = "_synthetic.bson"
         EXPERIMENT_NAME = stringFromParameters([now()])
         EXPERIMENT_DIR = joinpath("data/experiments", EXPERIMENT_NAME)
         MODEL_SAVE_DIR = joinpath(EXPERIMENT_DIR, "saved_models")

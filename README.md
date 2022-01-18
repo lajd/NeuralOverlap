@@ -7,6 +7,10 @@
 conda create -n NeuralOverlap python=3.9
 conda activate NeuralOverlap
 conda install -c conda-forge julia
+
+# Python dependencies
+pip install faiss-gpu
+
 ```
 
 ### Installing the package
