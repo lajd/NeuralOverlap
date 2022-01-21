@@ -54,78 +54,6 @@ catch e
     global ArrayType = Union{Vector{Float32}, Matrix{Float32}}
 end
 
-# function trainingEvaluation(args, model, dataHelper)
-#     evaluateTime = @elapsed begin
-#     @printf("-----Evaluation dataset-----\n")
-#     trainmode!(model, false)
-#
-#     @allowscalar begin
-#         meanAbsEvalError, maxAbsEvalError, minAbsEvalError,
-#         totalAbsEvalError, meanEstimationError,
-#         recallDict, linearEditDistanceModel = Utils.evaluateModel(
-#             dataHelper, model, args.MAX_STRING_LENGTH, numNN=args.NUM_NNS,
-#             plotsSavePath=args.PLOTS_SAVE_DIR, identifier=epoch,
-#             distanceMatrixNormMethod=args.DISTANCE_MATRIX_NORM_METHOD,
-#             kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP,
-#             estErrorN=args.EST_ERROR_N
-#         )
-#
-# #         push!(meanAbsEvalErrorArray, meanAbsEvalError)
-# #         push!(maxAbsEvalErrorArray, maxAbsEvalError)
-# #         push!(minAbsEvalErrorArray, minAbsEvalError)
-# #         push!(totalAbsEvalErrorArray, totalAbsEvalError)
-#
-# #         if length(trainingLossArray) > 2
-# #             fig = plot(
-# #                 [i * evalEvery for i in 1:length(trainingLossArray)],
-# #                 [trainingLossArray, rankLossArray, embeddingLossArray],
-# #                 label=["training loss" "rank loss" "embedding loss"],
-# # #                     yaxis=:log,
-# #                 xlabel="Epoch",
-# #                 ylabel="Loss"
-# #             )
-# #             savefig(fig, joinpath(args.PLOTS_SAVE_DIR, "training_losses.png"))
-# #         end
-#
-#         if length(meanAbsEvalErrorArray) > 2
-#             fig = plot(
-#                 [i * evalEvery for i in 1:length(meanAbsEvalErrorArray)],
-#                 [meanAbsEvalErrorArray, maxAbsEvalErrorArray, minAbsEvalErrorArray],
-#                 label=["Val Mean Abs Error" "Val Max Abs Error" "Val Min Abs Error"],
-# #                     yaxis=:log,
-#                 xlabel="Epoch",
-#                 ylabel="Error"
-#             )
-#             savefig(fig, joinpath(args.PLOTS_SAVE_DIR, "validation_error.png"))
-#         end
-#
-# #         # Save the model, removing old ones
-# #         if epoch > 1 && meanAbsEvalError < bestMeanAbsEvalError
-# #             SaveModelTime = @elapsed begin
-# #                 # Save the embedding model
-# #                 @printf("Saving new model...\n")
-# #                 bestMeanAbsEvalError = meanAbsEvalError
-# #                 Utils.removeOldModels(args.MODEL_SAVE_DIR)
-# #                 emeddingModelCPU = model |> cpu
-# #
-# #                 # Save the linear calibration model
-# #                 modelName = string("epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError)
-# #
-# #                JLD2.save(
-# #                    joinpath(args.MODEL_SAVE_DIR, string(modelName, ".jld2")),
-# #                    Dict("embedding_model" => emeddingModelCPU, "distance_calibration_model" => linearEditDistanceModel)
-# #                )
-# #             end
-# #             @printf("Save moodel time %s\n", SaveModelTime)
-# #         end
-#     end
-#     return meanAbsEvalErrorArray, maxAbsEvalErrorArray, minAbsEvalErrorArray, totalAbsEvalErrorArray
-#
-# #             push!(meanAbsEvalErrorArray, meanAbsEvalError)
-# #         push!(maxAbsEvalErrorArray, maxAbsEvalError)
-# #         push!(minAbsEvalErrorArray, minAbsEvalError)
-# #         push!(totalAbsEvalErrorArray, totalAbsEvalError)
-# end
 
 function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpochs=100, evalEvery=5)
     local trainingLossArray = []
@@ -232,7 +160,7 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                             evalDataHelper, model, args.MAX_STRING_LENGTH, numNN=args.NUM_NNS,
                             plotsSavePath=args.PLOTS_SAVE_DIR, identifier=string("evaluation_epoch_", epoch),
                             distanceMatrixNormMethod=args.DISTANCE_MATRIX_NORM_METHOD,
-                            kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP, 
+                            kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP,
                             estErrorN=args.EST_ERROR_N, bSize=args.BSIZE
                         )
 
@@ -282,7 +210,7 @@ function trainingLoop!(args, model, trainDataHelper, evalDataHelper, opt; numEpo
                                    Dict(
                                         "embedding_model" => emeddingModelCPU,
                                         "distance_calibration_model" => linearEditDistanceModel,
-#                                         "meanDistance", => trainDataHelper.meanDistance()
+                                        "meanDistance", => trainDataHelper.meanDistance()
                                     )
                                )
                             end
@@ -327,178 +255,10 @@ end
 
 ExperimentArgs = [
         ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=6,
-        NUM_BATCHES=128,  #
+        NUM_EPOCHS=100,
+        NUM_BATCHES=32,  #
         MAX_STRING_LENGTH=64,
-        BSIZE=2048,
-        NUM_INTERMEDIATE_CONV_LAYERS=3,
-        CONV_ACTIVATION=relu,
-        WITH_INPUT_BATCHNORM=false,
-        WITH_BATCHNORM=true,
-        WITH_DROPOUT=false,
-        OUT_CHANNELS = 4,
-        NUM_FC_LAYERS=1,
-        CONV_ACTIVATION_MOD=2,
-        LR=0.01,
-        L0rank=1.,
-        L0emb=0.1,
-        LOSS_STEPS_DICT = Dict(),
-#         _N_LOSS_STEPS = Int32(floor(50 / 5)),
-#         LOSS_STEPS_DICT = Dict(
-#             0 => (0., 1.),
-#             10 => (10., 10.),
-#             20 => (10., 1.),
-#             30 => (5., 0.1),
-#             40 => (1., 0.01),
-#         ),
-        K_START = 1,
-        K_END = 1000,
-        K_STEP = 100,
-        NUM_NNS=1000,
-        POOLING_METHOD="mean",
-        DISTANCE_METHOD="l2",
-        DISTANCE_MATRIX_NORM_METHOD="mean",
-        GRADIENT_CLIP_VALUE=1,
-        NUM_TRAIN_EXAMPLES=20000,
-        NUM_EVAL_EXAMPLES=20000,
-        NUM_TEST_EXAMPLES=200,
-        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="inverseDistance",
-        USE_SYNTHETIC_DATA=false,
-        USE_SEQUENCE_DATA=true,
-    ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=6,
-        NUM_BATCHES=128,  #
-        MAX_STRING_LENGTH=64,
-        BSIZE=2048,
-        NUM_INTERMEDIATE_CONV_LAYERS=3,
-        CONV_ACTIVATION=relu,
-        WITH_INPUT_BATCHNORM=false,
-        WITH_BATCHNORM=true,
-        WITH_DROPOUT=false,
-        OUT_CHANNELS = 4,
-        NUM_FC_LAYERS=1,
-        CONV_ACTIVATION_MOD=2,
-        LR=0.01,
-        L0rank=1.,
-        L0emb=0.1,
-        LOSS_STEPS_DICT = Dict(),
-#         _N_LOSS_STEPS = Int32(floor(50 / 5)),
-#         LOSS_STEPS_DICT = Dict(
-#             0 => (0., 1.),
-#             10 => (10., 10.),
-#             20 => (10., 1.),
-#             30 => (5., 0.1),
-#             40 => (1., 0.01),
-#         ),
-        K_START = 1,
-        K_END = 1000,
-        K_STEP = 100,
-        NUM_NNS=1000,
-        POOLING_METHOD="mean",
-        DISTANCE_METHOD="l2",
-        DISTANCE_MATRIX_NORM_METHOD="mean",
-        GRADIENT_CLIP_VALUE=1,
-        NUM_TRAIN_EXAMPLES=20000,
-        NUM_EVAL_EXAMPLES=20000,
-        NUM_TEST_EXAMPLES=200,
-        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="inverseDistance",
-        USE_SYNTHETIC_DATA=false,
-        USE_SEQUENCE_DATA=true,
-    ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=6,
-        NUM_BATCHES=128,  #
-        MAX_STRING_LENGTH=64,
-        BSIZE=2048,
-        NUM_INTERMEDIATE_CONV_LAYERS=3,
-        CONV_ACTIVATION=relu,
-        WITH_INPUT_BATCHNORM=false,
-        WITH_BATCHNORM=true,
-        WITH_DROPOUT=false,
-        OUT_CHANNELS = 4,
-        NUM_FC_LAYERS=1,
-        CONV_ACTIVATION_MOD=2,
-        LR=0.01,
-        L0rank=1.,
-        L0emb=0.1,
-        LOSS_STEPS_DICT = Dict(),
-#         _N_LOSS_STEPS = Int32(floor(50 / 5)),
-#         LOSS_STEPS_DICT = Dict(
-#             0 => (0., 1.),
-#             10 => (10., 10.),
-#             20 => (10., 1.),
-#             30 => (5., 0.1),
-#             40 => (1., 0.01),
-#         ),
-        K_START = 1,
-        K_END = 1000,
-        K_STEP = 100,
-        NUM_NNS=1000,
-        POOLING_METHOD="mean",
-        DISTANCE_METHOD="l2",
-        DISTANCE_MATRIX_NORM_METHOD="mean",
-        GRADIENT_CLIP_VALUE=1,
-        NUM_TRAIN_EXAMPLES=20000,
-        NUM_EVAL_EXAMPLES=20000,
-        NUM_TEST_EXAMPLES=200,
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="inverseDistance",
-        USE_SYNTHETIC_DATA=false,
-        USE_SEQUENCE_DATA=true,
-    ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=6,
-        NUM_BATCHES=128,  #
-        MAX_STRING_LENGTH=64,
-        BSIZE=2048,
-        NUM_INTERMEDIATE_CONV_LAYERS=3,
-        CONV_ACTIVATION=relu,
-        WITH_INPUT_BATCHNORM=false,
-        WITH_BATCHNORM=true,
-        WITH_DROPOUT=false,
-        OUT_CHANNELS = 2,
-        NUM_FC_LAYERS=1,
-        CONV_ACTIVATION_MOD=2,
-        LR=0.01,
-        L0rank=1.,
-        L0emb=0.1,
-        LOSS_STEPS_DICT = Dict(),
-#         _N_LOSS_STEPS = Int32(floor(50 / 5)),
-#         LOSS_STEPS_DICT = Dict(
-#             0 => (0., 1.),
-#             10 => (10., 10.),
-#             20 => (10., 1.),
-#             30 => (5., 0.1),
-#             40 => (1., 0.01),
-#         ),
-        K_START = 1,
-        K_END = 1000,
-        K_STEP = 100,
-        NUM_NNS=1000,
-        POOLING_METHOD="mean",
-        DISTANCE_METHOD="l2",
-        DISTANCE_MATRIX_NORM_METHOD="mean",
-        GRADIENT_CLIP_VALUE=1,
-        NUM_TRAIN_EXAMPLES=20000,
-        NUM_EVAL_EXAMPLES=20000,
-        NUM_TEST_EXAMPLES=200,
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="inverseDistance",
-        USE_SYNTHETIC_DATA=false,
-        USE_SEQUENCE_DATA=true,
-    ),
-    ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=6,
-        NUM_BATCHES=128,  #
-        MAX_STRING_LENGTH=64,
-        BSIZE=2048,
+        BSIZE=4096,
         NUM_INTERMEDIATE_CONV_LAYERS=4,
         CONV_ACTIVATION=relu,
         WITH_INPUT_BATCHNORM=false,
@@ -520,7 +280,7 @@ ExperimentArgs = [
 #             40 => (1., 0.01),
 #         ),
         K_START = 1,
-        K_END = 1000,
+        K_END = 1001,
         K_STEP = 100,
         NUM_NNS=1000,
         POOLING_METHOD="mean",
@@ -530,10 +290,9 @@ ExperimentArgs = [
         NUM_TRAIN_EXAMPLES=20000,
         NUM_EVAL_EXAMPLES=20000,
         NUM_TEST_EXAMPLES=200,
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-#         KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
-        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="inverseDistance",
+        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
+        # KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
+        # KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="inverseDistance",
         USE_SYNTHETIC_DATA=false,
         USE_SEQUENCE_DATA=true,
     ),
@@ -573,7 +332,7 @@ for args in ExperimentArgs
         else
             opt = Flux.Optimise.Optimiser(ClipValue(args.GRADIENT_CLIP_VALUE), opt)
         end
-        
+
         # Create the model
         embeddingModel = Model.getModel(
             args.MAX_STRING_LENGTH, args.ALPHABET_DIM, args.EMBEDDING_DIM,
@@ -588,14 +347,14 @@ for args in ExperimentArgs
 
         # Get dataset split
         trainingSequences, evalSequences, testSequences =  getDatasetSplit(args)
-        
+
         # Training dataset
         trainDatasetHelper = Dataset.DatasetHelper(
             trainingSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
             Utils.pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
             args.DISTANCE_MATRIX_NORM_METHOD, args.NUM_NNS
         )
-        
+
         Dataset.plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="training_dataset")
         Dataset.plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR, identifier="training_dataset", sampledTopKNNs=args.SAMPLED_TOP_K_NEIGHBOURS)
         batchDict = trainDatasetHelper.getTripletBatch(args.BSIZE)

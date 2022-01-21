@@ -20,7 +20,7 @@ module Utils
         global DEVICE = Flux.cpu
         global ArrayType = Union{Vector{Float32}, Matrix{Float32}}
     end
-    
+
 
     function l2Norm(A; dims)
         A = sum(x -> x^2, A; dims=dims)
@@ -49,18 +49,18 @@ module Utils
         trainingLoss = split(suffix, modelExtension)[1]
         return parse(Float32, trainingLoss)
     end
-    
-    
+
+
     function removeOldModels(modelSaveDir::String, keepN::Int64=3)
         # Remove any old models
         trainingScoreToModelNameDict = Dict()
         allModels = readdir(modelSaveDir)
-    
+
         for modelName in allModels
             trainingLoss = getTrainingScore(modelName)
             trainingScoreToModelNameDict[trainingLoss] = modelName
         end
-    
+
         i = 0
         for (trainingLoss, modelName) in sort(collect(trainingScoreToModelNameDict), by=x->x[1], rev=false)
             i = i + 1
@@ -74,7 +74,7 @@ module Utils
     function getBestModelPath(modelSaveDir::String)::String
         trainingScoreToModelNameDict = Dict()
         allModels = readdir(modelSaveDir)
-    
+
         for modelName in allModels
             trainingLoss = getTrainingScore(modelName)
             trainingScoreToModelNameDict[trainingLoss] = modelName
@@ -146,7 +146,7 @@ module Utils
         """
         # If the items ranking top T contain k of the true top-k neighbors, the recall is k′/k.
         # Recall = (Relevant_Items_Recommended in top-k) / (Relevant_Items)
-        
+
         T = min(T, length(predKNN))
         K = min(K, length(actualKNN))
 
@@ -158,7 +158,7 @@ module Utils
 
         # Get the k' elements of T that are in the top K
         kPrime = sum([1 for i in predTNN if i in actualKNN])
-        
+
         # Recall is k'/k
         recall = kPrime / T
         return recall
@@ -250,9 +250,9 @@ module Utils
     end
 
     function embedSequenceData(datasetHelper, idSeqDataMap, embeddingModel; bSize=512)
-        
+
         n = length(idSeqDataMap)  # Number of sequences
-        
+
         # Xarray's index is the same as idSeqDataMap
         Xarray = []
         Earray = []
@@ -292,20 +292,20 @@ module Utils
                 trueDistanceArray,
             )
         end
-        
+
         # Apply calibration model to the predicted distances
         calibratedPredictedDistanceArray = calibrationModel.predict(predDistanceArray)
-        
+
         # Use the calibrated predictions for error estimation
         absErrorArray = [abs(i - j) for (i, j) in zip(calibratedPredictedDistanceArray, trueDistanceArray)]
         estimationErrorArray = [absError / trueDist for (absError, trueDist) in zip(absErrorArray, trueDistanceArray)]
-        
+
         meanAbsError = mean(absErrorArray)
         maxAbsError = maximum(absErrorArray)
         minAbsError = minimum(absErrorArray)
         totalAbsError = sum(absErrorArray)
         meanEstimationError = mean(estimationErrorArray)
-        
+
         # Plot the true/predicted estimation error
         saveDir = joinpath(plotsSavePath, "true_vs_pred_edit_distance")
         mkpath(saveDir)
@@ -320,16 +320,16 @@ module Utils
 
         # Add the line y=x to the figure for reference
         plot!(fig, trueDistanceArray, trueDistanceArray)
-        
+
         savefig(fig, joinpath(saveDir, string("epoch", "_", identifier, estimationErrorIdentifier,  ".png")))
-        
+
         @printf("---------------%s--------------\n", estimationErrorIdentifier)
         @printf("Mean Absolute Error is %s \n", round(meanAbsError, digits=4))
         @printf("Max Absolute Error is %s \n", round(maxAbsError, digits=4))
         @printf("Min abs error is %s \n", round(minAbsError, digits=4))
         @printf("Total abs error is %s \n", round(totalAbsError, digits=4))
-        @printf("Mean relative estimation error is %s \n", round(meanEstimationError, digits=4))   
-        @printf("-------------------------------\n")     
+        @printf("Mean relative estimation error is %s \n", round(meanEstimationError, digits=4))
+        @printf("-------------------------------\n")
         return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel
 
     end
@@ -371,7 +371,7 @@ module Utils
                 push!(trueDistanceArray, trueDist)
             end
         end
-        
+
         trueDistanceArray = trueDistanceArray[1: estErrorN]
         predDistanceArray = predDistanceArray[1: estErrorN]
 
@@ -380,7 +380,7 @@ module Utils
 
     function getEstimationError(idSeqDataMap, distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max", calibrationModel=nothing)
         n = size(distanceMatrix)[1]
-        
+
         if distanceMatrixNormMethod == "max"
             denormFactor = maxStringLength
         elseif distanceMatrixNormMethod == "mean"
@@ -390,10 +390,10 @@ module Utils
         end
 
         estErrorN = min(length(idSeqDataMap), estErrorN)
-        
+
         # Randomly sample pairs and obtain true distance
         trueDistanceArray, predDistanceArray = _getRandomlySampledTruePredDistances(distanceMatrix, predictedDistanceMatrix, n, estErrorN, denormFactor)
-        
+
         meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel = _getEstimationErrorAndPlot(
             predDistanceArray, trueDistanceArray, plotsSavePath, identifier, calibrationModel=nothing, estimationErrorIdentifier="_random_samples"
         )
@@ -408,7 +408,7 @@ module Utils
         meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel = _getEstimationErrorAndPlot(
             predDistanceArrayNNSampled, trueDistanceArrayNNSampled, plotsSavePath, identifier, calibrationModel=nothing, estimationErrorIdentifier="_sampled_nns"
         )
-        
+
         return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel
     end
 
@@ -472,7 +472,7 @@ module Utils
         return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict, calibrationModel
     end
 
-    
-    
+
+
     anynan(x) = any(y -> any(isnan, y), x)
 end

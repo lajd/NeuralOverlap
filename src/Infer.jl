@@ -49,6 +49,11 @@ catch e
 end
 
 
+EXPERIMENT_DIR="/home/jon/JuliaProjects/NeuralOverlap/data/experiments/2022-01-20T08:03:13.264_newModelMeanNorm"
+INFERENCE_FASTQ = "/home/jon/JuliaProjects/NeuralOverlap/data_fetch/covid_test.fa_R1.fastq"
+# INFERENCE_FASTQ = "/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix174_train.fa_R1.fastq"
+
+
 function getInfererenceSequences(maxSamples=Int(1e4))::Array
     # Eval Dataset
     if args.USE_SYNTHETIC_DATA == true
@@ -363,10 +368,6 @@ function getTrueNNOverlap(args; k=1000)
 end
 
 
-EXPERIMENT_DIR="/home/jon/JuliaProjects/NeuralOverlap/data/experiments/2022-01-20T08:03:13.264_newModelMeanNorm"
-# INFERENCE_FASTQ = "/home/jon/JuliaProjects/NeuralOverlap/data_fetch/covid_test.fa_R1.fastq"
-INFERENCE_FASTQ = "/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix174_train.fa_R1.fastq"
-
 args = JLD2.load(joinpath(EXPERIMENT_DIR, "args.jld2"))["args"]
 
 models = JLD2.load(Utils.getBestModelPath(args.MODEL_SAVE_DIR)) |> DEVICE
@@ -383,8 +384,10 @@ batchSequenceIterator = Channel( (channel) -> batchSequencesProducer(args, chann
 
 faissIndex = createEmbeddingIndex(args, batchSequenceIterator, quantize=QUANTIZE)
 
-# Make direct map
-faissIndex.make_direct_map()
+# Make direct map if the index allows for it
+if hasproperty(faissIndex, :make_direct_map)
+    faissIndex.make_direct_map()
+end
 
 numNeighbours = 1000
 predictedNNMap = getApproximateNNOverlap(args, faissIndex, k=numNeighbours)

@@ -40,9 +40,10 @@ module Dataset
 
         timeGetPairwiseDistances = @elapsed begin
             seqIdMap, distanceMatrix = pairwiseDistanceFun(sequences)
+            meanDistance = mean(distanceMatrix)
             # Normalize distance matrix by maximum length
             if distanceMatNormMethod == "mean"
-                distanceMatrix = distanceMatrix / mean(distanceMatrix)
+                distanceMatrix = distanceMatrix / meanDistance
 
             elseif distanceMatNormMethod == "max"
                 distanceMatrix = distanceMatrix / maxSequenceLength
@@ -77,7 +78,7 @@ module Dataset
         getSeqIdMap() = seqIdMap
         getIdSeqDataMap() = idSeqDataMap
         getDistance(id1, id2) = distanceMatrix[id1, id2]
-        meanDistance = mean(distanceMatrix)
+        meanDistance = meanDistance
         numSeqs() = numSequences
 
         function getNNs(id)
@@ -98,13 +99,6 @@ module Dataset
                 # Don't allow the pos/neg ID to be the same as the anchor (start index 2)
                 # TODO: For negative sample, sample randomly?
                 a_nns = idSeqDataMap[ida]["topKNN"][startIndex:sampledTripletNNs + 1]  # Only consider the top K NNs when creating the triplets
-
-                # Note: These weights linearly weight NNs according to their rank (not according to their similarity)
-                # TODO: Rank NNs according to their similarity
-
-                rankedPositiveSamplingWeights = ProbabilityWeights(Array(range(sampledTripletNNs, 1,step=-1) / sum(range(sampledTripletNNs, 1, step=-1))))
-
-
 
                 # Sample both I and J from NNs
                 if weightFunctionMethod == "uniform"
@@ -149,7 +143,7 @@ module Dataset
                 idp, idn = j, i
                 dap, dan = daj, dai
             end
-            
+
             return ida, idp, idn, dap, dan, dpn, numCollisions
 
         end
@@ -244,7 +238,7 @@ module Dataset
         function batchToTuple(batch)
             order = ["Idacr", "Idpos", "Idneg", "Sacr", "Spos", "Sneg", "Xacr", "Xpos", "Xneg", "Dpos", "Dneg", "DPosNeg"]
             output = []
-            for k in order                
+            for k in order
                 v = batch[k]
                 push!(output, v)
             end
@@ -254,7 +248,7 @@ module Dataset
         function extractBatchTupleSubset(batch, i, j)::Tuple
             order = ["Idacr", "Idpos", "Idneg", "Sacr", "Spos", "Sneg", "Xacr", "Xpos", "Xneg", "Dpos", "Dneg", "DPosNeg"]
             output = []
-            for k in order                
+            for k in order
                 v = batch[k]
                 dim = length(size(v))
                 if dim == 1
@@ -273,7 +267,7 @@ module Dataset
             chunkSize = Int(floor(bsize/numBatches))
             i = 1
             j = chunkSize
-            
+
             outputChunks = []
             while j <= bsize
                 push!(outputChunks, extractBatchTupleSubset(batch, i, j))
@@ -297,7 +291,7 @@ module Dataset
         getTripletBatch;numCollisions;shuffleTripletBatch!;extractBatches;batchToTuple;
         formatOneHotSequenceArray;getNNs;batchTuplesProducer;meanDistance)
     end
-    
+
 
     function oneHotEncodeSequence(s::String, maxSeqLen::Int64, alphabetSymbols::Vector{Symbol})::Matrix
             symbols = [Symbol(char) for char in s]
@@ -307,7 +301,7 @@ module Dataset
             oneHotBatch = float.(oneHotBatch)
             return oneHotBatch
     end
-    
+
     function oneHotBatchSequences(seqArr:: Array{String}, maxSeqLen::Int64, bSize::Int64, alphabetSymbols::Vector{Symbol}; doPad=true)
         oneHotSeqs = Dataset.oneHotSequences(seqArr, maxSeqLen, alphabetSymbols)
         if doPad
@@ -325,7 +319,7 @@ module Dataset
         maxSamples = min(maxSamples, n)
         randSamplesX = a = sample(1:n, maxSamples, replace = false)
         randSamplesY = a = sample(1:n, maxSamples, replace = false)
-        dists = [distanceMat[i, j] for (i, j) in  zip(randSamplesX, randSamplesY)]        
+        dists = [distanceMat[i, j] for (i, j) in  zip(randSamplesX, randSamplesY)]
         fig = plot(scatter(1:maxSamples, dists), title="True distances")
         savefig(fig, joinpath(plotsSavePath, string(identifier, "_", "true_sequence_distances.png")))
     end
