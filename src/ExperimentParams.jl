@@ -56,6 +56,7 @@ module ExperimentParams
         WITH_INPUT_BATCHNORM = false
         WITH_BATCHNORM = false
         WITH_DROPOUT = false
+        CONV_ACTIVATION_MOD = 1
 
         # Pooling
         POOLING_METHOD= "mean"
@@ -72,10 +73,13 @@ module ExperimentParams
         ################
         BSIZE = 256
         NUM_EPOCHS = 50
-        NUM_NNS = 100
+        NUM_NNS = 1000
         K_START = 1
         K_END = 200
         K_STEP = 20
+        SAMPLED_TOP_K_NEIGHBOURS=100
+
+        FAISS_TRAIN_SIZE = 5000
 
 
         @assert NUM_EPOCHS > 0

@@ -164,11 +164,11 @@ module Utils
         return recall
     end
 
-    function getTopTRecallAtK(idSeqDataMap, predictedDistanceMatrix; plotsSavePath=".", identifier="", numNN=100, kStart=1, kEnd=100, kStep=10)
-        n = length(idSeqDataMap)
-
-        numNN = min(n, numNN)
-
+    function getTopTRecallAtK(plotsSavePath, identifier=""; numNN=1000,
+        kStart=1, kEnd=1001, kStep=100, startIndex=2,
+        trueDistanceMatrix=nothing, trueIDSeqDataMap=nothing, predictedDistanceMatrix=nothing,
+        predictedIDSeqDataMap=nothing, nSample=1000
+    )
         # Get k-nns and recall
         kValues = [k for k in range(kStart, kEnd + 1, step=kStep)]
         recallDict = Dict(
@@ -180,29 +180,44 @@ module Utils
             "top100Recall" => Dict([(k, 0.) for k in kValues])
         )
 
-        # Get the total sums across all samples
-        # Note that we start at index 2 for both predicted/actual KNNs,
-        # so that the sequence is not compared with itself (skewing results, especially T=1)
+        # TODO Randomly sample the IDs?
         startIndex = 2
         for k in kValues
-            for id in 1:n
-                predicted_knns = sortperm(predictedDistanceMatrix[id, 1:end])[startIndex:numNN]
-                actual_knns = idSeqDataMap[id]["k100NN"][startIndex:end]
+            for id in 1:nSample
+                actual_knns = nothing
+                predicted_knns = nothing
 
-                @assert length(predicted_knns) == length(actual_knns)
+                if predictedIDSeqDataMap != nothing
+                    predicted_knns = predictedIDSeqDataMap[id]["topKNN"][startIndex:numNN]
+                elseif predictedDistanceMatrix != nothing
+                    predicted_knns = sortperm(predictedDistanceMatrix[id, 1:end])[startIndex:numNN]
+                else
+                    throw("Invalid")
+                end
+
+                if trueIDSeqDataMap != nothing
+                    actual_knns = trueIDSeqDataMap[id]["topKNN"][startIndex:numNN]
+                elseif trueDistanceMatrix != nothing
+                    actual_knns = sortperm(trueDistanceMatrix[id, 1:end])[startIndex:numNN]
+                else
+                    throw("Invalid")
+                end
+
+                @assert length(predicted_knns) == length(actual_knns) (length(predicted_knns), length(actual_knns))
                 recallDict["top1Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=1, K=k)
                 recallDict["top5Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=5, K=k)
                 recallDict["top10Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=10, K=k)
                 recallDict["top25Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=25, K=k)
                 recallDict["top50Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=50, K=k)
                 recallDict["top100Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=100, K=k)
+
             end
         end
 
-        # Normalize by the number of samples
+        # Normalize by the number of samples used to compute the recall sum
         for (topNKey, sumRecallAtKDict) in recallDict
             for (kValue, sumValue) in sumRecallAtKDict
-                recallDict[topNKey][kValue] = sumValue/length(idSeqDataMap)
+                recallDict[topNKey][kValue] = sumValue/nSample
             end
         end
 
@@ -218,48 +233,51 @@ module Utils
             end
             averageRecallDict[topNRecallAtK] = recallAtKArray
         end
-        
+
         # Save a plot to a new directory
         saveDir = joinpath(plotsSavePath, "recall_at_k")
         mkpath(saveDir)
         fig = plot(kValues, [averageRecallDict["top1Recall"], averageRecallDict["top5Recall"],
             averageRecallDict["top10Recall"], averageRecallDict["top25Recall"], averageRecallDict["top50Recall"],
             averageRecallDict["top100Recall"]], label=["top1Recall" "top5Recall" "top10Recall" "top25Recall" "top50Recall" "top100Recall"],
-            title=string("Average recall at K of ", length(idSeqDataMap), " samples"), 
+            title=string("Average recall at for samples", nSample, " samples"),
             xlabel="Number of items",
             ylabel="Recall"
             )
         savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
-        
+
         return recallDict
     end
 
-    function embedSequenceData(datasetHelper, idSeqDataMap, embeddingModel; bsize=128)
+    function embedSequenceData(datasetHelper, idSeqDataMap, embeddingModel; bSize=512)
         
         n = length(idSeqDataMap)  # Number of sequences
         
         # Xarray's index is the same as idSeqDataMap
         Xarray = []
+        Earray = []
+
+        function _encodeBatch(xarr, earr)
+            formattedOneHotSeqs = datasetHelper.formatOneHotSequenceArray(xarr)
+            formattedOneHotSeqs = formattedOneHotSeqs |> DEVICE
+            emb = embeddingModel(formattedOneHotSeqs) |> Flux.cpu
+            push!(earr, embeddingModel(formattedOneHotSeqs))
+        end
+
+#         formattedXArray = []
         for k in 1:n
             v = idSeqDataMap[k]
             push!(Xarray, v["oneHotSeq"])
+
+            if length(Xarray) == bSize
+                _encodeBatch(Xarray, Earray)
+                Xarray = []
+            end
         end
+        _encodeBatch(Xarray, Earray)
+        Xarray = []
 
-        X = datasetHelper.formatOneHotSequenceArray(Xarray)
-
-        Earray = []
-
-        i = 1
-        j = bsize
-        while j < n
-            Xm=X[1:end, 1:end, i:j] |> DEVICE
-            push!(Earray, embeddingModel(Xm))
-            i += bsize
-            j += bsize
-        end
-        Xm = X[1:end, 1:end, i:n] |> DEVICE
-        push!(Earray, embeddingModel(Xm))
-
+        # TODO: This does not scale to very large datasets
         E = hcat(Earray...)
         @assert size(E)[2] == n
         return E
@@ -293,7 +311,7 @@ module Utils
         mkpath(saveDir)
         fig = plot(scatter(trueDistanceArray, [predDistanceArray, calibratedPredictedDistanceArray],
             label=["pred" "calibrated-pred"],
-            title="Edit distanance predictions"),
+            title="Edit distance predictions"),
             xlabel="true edit distance",
             ylabel="predicted edit distance",
             xlims=(0, Inf),
@@ -345,7 +363,7 @@ module Utils
         trueDistanceArray = []
         # Randomly sample pairs and obtain true distance
         for id1 in 1:n
-            actual_knns = idSeqDataMap[id1]["k100NN"][startIndex:numNNsPerSample]
+            actual_knns = idSeqDataMap[id1]["topKNN"][startIndex:numNNsPerSample]
             for id2 in actual_knns
                 trueDist = distanceMatrix[id1, id2] * denormFactor
                 predDist = predictedDistanceMatrix[id1, id2] * denormFactor
@@ -370,6 +388,8 @@ module Utils
         else
             throw("Invalidate distanceMatrixNormMethod")
         end
+
+        estErrorN = min(length(idSeqDataMap), estErrorN)
         
         # Randomly sample pairs and obtain true distance
         trueDistanceArray, predDistanceArray = _getRandomlySampledTruePredDistances(distanceMatrix, predictedDistanceMatrix, n, estErrorN, denormFactor)
@@ -393,7 +413,7 @@ module Utils
     end
 
 
-    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bsize=512,
+    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bSize=512,
          method="l2", numNN=100, estErrorN=1000, plotsSavePath=".",
          identifier="", distanceMatrixNormMethod="max", kStart=kStart,
          kEnd=kEnd, kStep=kStep
@@ -407,7 +427,7 @@ module Utils
 
         timeEmbedSequences = @elapsed begin
             Etensor = embedSequenceData(
-                datasetHelper, idSeqDataMap, embeddingModel, bsize=bsize
+                datasetHelper, idSeqDataMap, embeddingModel, bSize=bSize
             )
         end
 
@@ -428,10 +448,8 @@ module Utils
 
         timeGetRecallAtK = @elapsed begin
             # Obtain the recall dictionary for each T value, for each K value
-            recallDict = getTopTRecallAtK(
-                idSeqDataMap, predictedDistanceMatrix,
-                plotsSavePath=plotsSavePath, identifier=identifier, numNN=numNN,
-                kStart=kStart, kEnd=kEnd, kStep=kStep
+            recallDict = getTopTRecallAtK(plotsSavePath, identifier, numNN=numNN,
+                kStart=kStart, kEnd=kEnd, kStep=kStep,trueIDSeqDataMap=idSeqDataMap, predictedDistanceMatrix=predictedDistanceMatrix,
             )
         end
 

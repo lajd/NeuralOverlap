@@ -28,7 +28,7 @@ module Dataset
     function DatasetHelper(sequences::Array{String}, maxSequenceLength::Int64,
          alphabet::Vector{Char}, alphabetSymbols::Vector{Symbol},
          pairwiseDistanceFun::Function, weightFunctionMethod::String,
-         distanceMatNormMethod::String="max", numNN=100)
+         distanceMatNormMethod::String="max", numNN=100, sampledTripletNNs=100)
         numSequences = length(sequences)
         @info("Creating dataset from sequences...\n")
         @printf("Using dataset with %s sequences\n", numSequences)
@@ -43,12 +43,13 @@ module Dataset
             # Normalize distance matrix by maximum length
             if distanceMatNormMethod == "mean"
                 distanceMatrix = distanceMatrix / mean(distanceMatrix)
+
             elseif distanceMatNormMethod == "max"
                 distanceMatrix = distanceMatrix / maxSequenceLength
+
             else
                 throw("Invalid normalization scheme")
             end
-
         end
         @printf("Time to calculate pairwise ground-truth distances: %ss\n", timeGetPairwiseDistances)
 
@@ -59,14 +60,14 @@ module Dataset
 
             # Weights
             @printf("Using sampling method %s\n", weightFunctionMethod)
-            rankedPositiveSamplingWeights = ProbabilityWeights(Array(range(numNN, 1,step=-1) / sum(range(numNN, 1, step=-1))))
+
 
             numCollisions = 0
             for (seq, id) in seqIdMap
                 idSeqDataMap[id] = Dict(
                     "seq" => seq,
                     "oneHotSeq" => oneHotEncodedSequences[id],
-                    "k100NN" => sortperm(distanceMatrix[id, 1:end])[1:numNN]  # Don't compare example to itself
+                    "topKNN" => sortperm(distanceMatrix[id, 1:end])[1:numNN]  # Index 1 is always itself
                 )
             end
         end
@@ -76,34 +77,55 @@ module Dataset
         getSeqIdMap() = seqIdMap
         getIdSeqDataMap() = idSeqDataMap
         getDistance(id1, id2) = distanceMatrix[id1, id2]
+        meanDistance = mean(distanceMatrix)
         numSeqs() = numSequences
 
         function getNNs(id)
-            return idSeqDataMap[id]["k100NN"]
+            return idSeqDataMap[id]["topKNN"]
         end
 
         @info("Dataset contains: %s unique sequences", numSequences)
-        function _get_valid_triplet()
+        function _get_valid_triplet(startIndex = 2)
             areUnique = false
 
             ida = dpn = dai = daj = i = j = Nothing
 
-            numCollisions = 0 
-            while areUnique != true
-                ida = rand(1:numSequences)
-                # Choose positive/negative sample from 100 nearest neighbours
-                # TODO: For negative sample, sample randomly?
-                a_nns = idSeqDataMap[ida]["k100NN"]
+            numCollisions = 0
 
+            while areUnique != true
+                ida = rand(1:numSequences)  # Anchor
+                # Choose positive/negative sample from 100 nearest neighbours
+                # Don't allow the pos/neg ID to be the same as the anchor (start index 2)
+                # TODO: For negative sample, sample randomly?
+                a_nns = idSeqDataMap[ida]["topKNN"][startIndex:sampledTripletNNs + 1]  # Only consider the top K NNs when creating the triplets
+
+                # Note: These weights linearly weight NNs according to their rank (not according to their similarity)
+                # TODO: Rank NNs according to their similarity
+
+                rankedPositiveSamplingWeights = ProbabilityWeights(Array(range(sampledTripletNNs, 1,step=-1) / sum(range(sampledTripletNNs, 1, step=-1))))
+
+
+
+                # Sample both I and J from NNs
                 if weightFunctionMethod == "uniform"
                     i = sample(a_nns)
+                    j = sample(a_nns)
                 elseif weightFunctionMethod == "ranked"
+                    # If only I is sampled using the ranked formulation, J
+                    # will typically be a sequence which is ranom WRT the reference
+                    rankedPositiveSamplingWeights = ProbabilityWeights(Array(range(sampledTripletNNs, 1,step=-1) / sum(range(sampledTripletNNs, 1, step=-1))))
                     i = sample(a_nns, rankedPositiveSamplingWeights)
+                    j = sample(a_nns, rankedPositiveSamplingWeights)
+                elseif weightFunctionMethod == "inverseDistance"
+                    # Sample based on similarity such that similar sequences are significantly likely to be sampled
+                    # We do this so the algorithm is biased to see more similar samples than non-similar samples
+                    inverseDistanceSamplingWeights =ProbabilityWeights( (1 ./ a_nns) ./ sum(1 ./ a_nns) )
+                    i = sample(a_nns, rankedPositiveSamplingWeights)
+                    j = sample(a_nns, rankedPositiveSamplingWeights)
+                else
+                    throw("Invalid sampling method %s", weightFunctionMethod)
                 end
 
-                # We don't allow sequences to be compared with themselves
-                startIndex = 2
-                j = sample(a_nns[startIndex:end])
                 dai = distanceMatrix[ida, i]
                 daj = distanceMatrix[ida, j]
 
@@ -156,12 +178,12 @@ module Dataset
             )
         end
 
-        function formatOneHotSequenceArray(oneHotSequenec)
-            n = length(oneHotSequenec)
-            oneHotSequenec = convert.(Float32, vcat(oneHotSequenec...))
-            oneHotSequenec = permutedims(oneHotSequenec, (3, 2, 1))
-            oneHotSequenec = reshape(oneHotSequenec, :, 1, n)
-            return oneHotSequenec
+        function formatOneHotSequenceArray(oneHotSequence)
+            n = length(oneHotSequence)
+            oneHotSequence = convert.(Float32, vcat(oneHotSequence...))
+            oneHotSequence = permutedims(oneHotSequence, (3, 2, 1))
+            oneHotSequence = reshape(oneHotSequence, :, 1, n)
+            return oneHotSequence
         end
 
         function getTripletBatch(n::Int64)
@@ -273,7 +295,7 @@ module Dataset
 
         ()->(numSeqs;getDistanceMatrix;getSeqIdMap;getIdSeqDataMap;getDistance;getTripletDict;
         getTripletBatch;numCollisions;shuffleTripletBatch!;extractBatches;batchToTuple;
-        formatOneHotSequenceArray;getNNs;batchTuplesProducer)
+        formatOneHotSequenceArray;getNNs;batchTuplesProducer;meanDistance)
     end
     
 
@@ -308,10 +330,10 @@ module Dataset
         savefig(fig, joinpath(plotsSavePath, string(identifier, "_", "true_sequence_distances.png")))
     end
 
-    function plotKNNDistances(distanceMat, idSeqDataMap; plotsSavePath=".", num_samples=10, identifier="")
+    function plotKNNDistances(distanceMat, idSeqDataMap; plotsSavePath=".", num_samples=10, identifier="", sampledTopKNNs=100)
         for i in 1:num_samples
             refID, refData = rand(idSeqDataMap)
-            nns = refData["k100NN"]
+            nns = refData["topKNN"][1:sampledTopKNNs]
             distances = [distanceMat[refID, j] for j in nns]
             fig = plot(scatter(1:length(distances), distances), title="Random KNN distances")
             saveDir = joinpath(plotsSavePath, "random_knn_distances")
