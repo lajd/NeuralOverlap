@@ -395,6 +395,6 @@ predictedNNMap = getApproximateNNOverlap(args, faissIndex, k=numNeighbours)
 trueNNMap = getTrueNNOverlap(args, k=numNeighbours)
 
 recallDict = Utils.getTopTRecallAtK(
-    ".", "test", numNN=1000,
+    ".", "test", length(trueNNMap), numNN=1000,
     kStart=1, kEnd=1001, kStep=100; startIndex=2, trueIDSeqDataMap=trueNNMap, predictedIDSeqDataMap=predictedNNMap
 )

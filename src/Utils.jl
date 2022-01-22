@@ -164,7 +164,7 @@ module Utils
         return recall
     end
 
-    function getTopTRecallAtK(plotsSavePath, identifier=""; numNN=1000,
+    function getTopTRecallAtK(plotsSavePath, identifier, numSequences; numNN=1000,
         kStart=1, kEnd=1001, kStep=100, startIndex=2,
         trueDistanceMatrix=nothing, trueIDSeqDataMap=nothing, predictedDistanceMatrix=nothing,
         predictedIDSeqDataMap=nothing, nSample=1000
@@ -182,6 +182,7 @@ module Utils
 
         # TODO Randomly sample the IDs?
         startIndex = 2
+        nSample = min(nSample, numSequences)
         for k in kValues
             for id in 1:nSample
                 actual_knns = nothing
@@ -440,7 +441,7 @@ module Utils
 
         timeGetRecallAtK = @elapsed begin
             # Obtain the recall dictionary for each T value, for each K value
-            recallDict = getTopTRecallAtK(plotsSavePath, identifier, numNN=numNN,
+            recallDict = getTopTRecallAtK(plotsSavePath, identifier, n, numNN=numNN,
                 kStart=kStart, kEnd=kEnd, kStep=kStep,trueIDSeqDataMap=idSeqDataMap, predictedDistanceMatrix=predictedDistanceMatrix,
             )
         end

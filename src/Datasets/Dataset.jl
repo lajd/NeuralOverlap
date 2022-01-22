@@ -25,10 +25,14 @@ module Dataset
         return oneHotSequences
     end
 
+
     function DatasetHelper(sequences::Array{String}, maxSequenceLength::Int64,
          alphabet::Vector{Char}, alphabetSymbols::Vector{Symbol},
          pairwiseDistanceFun::Function, weightFunctionMethod::String,
-         distanceMatNormMethod::String="max", numNN=100, sampledTripletNNs=100)
+         distanceMatNormMethod::String="max", numNN::Int64=100, sampledTripletNNs::Int64=100)
+
+
+        sampledTripletNNs = min(sampledTripletNNs, numNN - 1)
         numSequences = length(sequences)
         @info("Creating dataset from sequences...\n")
         @printf("Using dataset with %s sequences\n", numSequences)
@@ -36,6 +40,7 @@ module Dataset
         timeGetOneHotSequences = @elapsed begin
             oneHotEncodedSequences = Dataset.oneHotSequences(sequences, maxSequenceLength, alphabetSymbols)
         end
+
         @printf("Time to format one-hot sequences: %ss\n", timeGetOneHotSequences)
 
         timeGetPairwiseDistances = @elapsed begin

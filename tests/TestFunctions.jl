@@ -45,7 +45,7 @@ x5 shape torch.Size([64, 3120])
 @testset "Constants tests" begin
     @testset "Test flat size" begin
         computedFlatSize = Constants._getFlatSize(30, 8, 26, 1)
-        @test computedFlatSize == 3120                              
+        @test computedFlatSize == 3120
     end
 end
 
@@ -73,7 +73,7 @@ end
         distMat = trainingDataset.getDistanceMatrix()
         seqIdMap = trainingDataset.getSeqIdMap()
         idSeqDataMap = trainingDataset.getIdSeqDataMap()
-        
+
         id1 = 1
         id2 = 5
 
@@ -82,14 +82,14 @@ end
         @assert trainingDataset.getDistance(id1, id2) == expectedDistance
 
         randomTriplet = trainingDataset.getRandomTripletData()
-        
+
     end
-    
+
 end
 
 
 @testset "Model tests" begin
-   
+
     @testset "load model no error" begin
         model = Model.getModel(30, 4, 64, 3120, 128, numConvLayers=1, numFCLayers=1)
     end
@@ -124,7 +124,7 @@ end
         # Reshape to extract batch size
         x6 = layers[6](x5)
         @test size(x6) == (64, 3120)
-        
+
         # Transpose for FC layer
         x7 = layers[7](x6)
         @test size(x7) == (3120, 64)
@@ -169,7 +169,7 @@ end
         # Conv2
         x6 = layers[6](x5)
         @test size(x6) == (1664, 8, 15)
-        
+
         # Reshape
         x7 = layers[7](x6)
         @test size(x7) == (15, 1664, 8)
@@ -185,7 +185,7 @@ end
         # Conv3
         x10 = layers[10](x9)
         @test size(x10) == (1664, 8, 7)
-        
+
         # Reshape
         x11 = layers[11](x10)
         @test size(x11) == (7, 1664, 8)
@@ -213,7 +213,7 @@ end
         # FC2 layer
         x17 = layers[17](x16)
         @test size(x17) == (128, 64)
-        
+
         # Transpose for output
         x18 = layers[18](x17)
         @test size(x18) == (64, 128)
@@ -257,6 +257,5 @@ end
             end
         end
     end
-    
-end
 
+end
