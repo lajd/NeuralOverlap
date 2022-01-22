@@ -131,15 +131,15 @@ module Utils
 
     function EmbeddingDistance(x1, x2, method; dims=1)
         if method == "l2"
-            return vec(Utils.l2Norm(x1 - x2, dims=dims)) |> DEVICE
+            return vec(Utils.l2Norm(x1 - x2, dims=dims))
         elseif method == "cosine"
-            return Utils.rowCosineSimilarity(x1, x2) |> DEVICE
+            return Utils.rowCosineSimilarity(x1, x2)
         else
             throw("Method not recognized")
         end
     end
 
-    function recallTopTAtK(predKNN, actualKNN; T=100,K=100)
+    function recallTopTAtK(predKNN, actualKNN; T=100, K=100)
         """
         T is the number of relevant documents
         K is the numer of "true" documents
@@ -378,16 +378,8 @@ module Utils
         return trueDistanceArray, predDistanceArray
     end
 
-    function getEstimationError(idSeqDataMap, distanceMatrix, predictedDistanceMatrix, maxStringLength; estErrorN=1000, plotsSavePath=".", identifier="", distanceMatrixNormMethod="max", calibrationModel=nothing)
+    function getEstimationError(idSeqDataMap, distanceMatrix, predictedDistanceMatrix, denormFactor; estErrorN=1000, plotsSavePath=".", identifier="", calibrationModel=nothing)
         n = size(distanceMatrix)[1]
-
-        if distanceMatrixNormMethod == "max"
-            denormFactor = maxStringLength
-        elseif distanceMatrixNormMethod == "mean"
-            denormFactor = mean(distanceMatrix)
-        else
-            throw("Invalidate distanceMatrixNormMethod")
-        end
 
         estErrorN = min(length(idSeqDataMap), estErrorN)
 
@@ -413,9 +405,9 @@ module Utils
     end
 
 
-    function evaluateModel(datasetHelper, embeddingModel, maxStringLength; bSize=512,
+    function evaluateModel(datasetHelper, embeddingModel, denormFactor; bSize=512,
          method="l2", numNN=100, estErrorN=1000, plotsSavePath=".",
-         identifier="", distanceMatrixNormMethod="max", kStart=kStart,
+         identifier="", kStart=kStart,
          kEnd=kEnd, kStep=kStep
         )
 
@@ -457,14 +449,13 @@ module Utils
             # Obtain estimation error
             meanAbsError, maxAbsError, minAbsError,
             totalAbsError, meanEstimationError, calibrationModel = getEstimationError(
-                idSeqDataMap, distanceMatrix, predictedDistanceMatrix, maxStringLength,
-                estErrorN=estErrorN, plotsSavePath=plotsSavePath, identifier=identifier,
-                distanceMatrixNormMethod=distanceMatrixNormMethod
+                idSeqDataMap, distanceMatrix, predictedDistanceMatrix,
+                denormFactor, estErrorN=estErrorN, plotsSavePath=plotsSavePath,
+                identifier=identifier
             )
         end
 
         # Log results
-
         @printf("Time to embed sequences: %s \n", timeEmbedSequences)
         @printf("Time to compute pred distance matrix: %s \n", timeGetPredictedDistanceMatrix)
         @printf("Time to get recall at K: %s \n", timeGetRecallAtK)

@@ -68,6 +68,8 @@ module ExperimentParams
         EMBEDDING_DIM = 128
         DISTANCE_METHOD="l2"
 
+        L2_NORMALIZE_EMBEDDINGS = true
+
         ###############
         # Training
         ################
@@ -75,8 +77,8 @@ module ExperimentParams
         NUM_EPOCHS = 50
         NUM_NNS = 1000
         K_START = 1
-        K_END = 200
-        K_STEP = 20
+        K_END = 1001
+        K_STEP = 10
         SAMPLED_TOP_K_NEIGHBOURS=100
 
         FAISS_TRAIN_SIZE = 5000
@@ -101,6 +103,8 @@ module ExperimentParams
 
         # Compute num batches such that, on average, each sequence will be used once
         NUM_BATCHES = 512
+
+        USE_EXP_DECAY = true
         EXP_DECAY_EVERY_N_EPOCHS=5
         EXP_DECAY_VALUE=0.5
         EXP_DECAY_CLIP=1e-5

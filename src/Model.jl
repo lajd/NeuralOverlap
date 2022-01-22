@@ -68,7 +68,7 @@ module Model
     function _getIntermediateConvLayers(fin, numLayers::Int64; k=3, c=8, activation=relu, withBatchnorm=false, poolingMethod="max", poolKernel=2, convActivationMod=1)::Array
         # -> CONV/FC -> BatchNorm -> ReLu(or other activation) -> Dropout -> CONV/FC ->
         layers = []
-        
+
         if poolingMethod == "max"
             pool = MaxPool((poolKernel,); pad=0)
         elseif poolingMethod == "mean"
@@ -76,7 +76,7 @@ module Model
         else
             throw("Invalid")
         end
-    
+
         bnDim = fin
         i = 1  # Starts with input conv
         if numLayers > 0
@@ -105,7 +105,7 @@ module Model
     function _getFCOutput(inputSize::Int64, outputSize::Int64, numLayers::Int64; activation=relu, withDropout=false, dropoutP=0.4, withBatchnorm=false)::Array
         # -> CONV/FC -> BatchNorm -> ReLu(or other activation) -> Dropout -> CONV/FC ->
         layers = []
-        
+
         if numLayers > 1
             for _ in 1:numLayers -1
                 if withBatchnorm
@@ -164,15 +164,13 @@ module Model
 
     function getModel(maxSeqLen::Int64, alphabetDim, embDim::Int64; numIntermediateConvLayers::Int64=0,
         numFCLayers::Int64=1, FCAct=relu, ConvAct=relu, k=3, c=8, withBatchnorm=false,
-        withInputBatchnorm=false, withDropout=false, poolingMethod="max", poolKernel=2, convActivationMod=1, inputLinearModel=true)::Chain
+        withInputBatchnorm=false, withDropout=false, poolingMethod="max", poolKernel=2, convActivationMod=1, inputLinearModel=true, normalizeEmbeddings=true)::Chain
 
         l_in = maxSeqLen * alphabetDim
         flatSize = getFlatSize(l_in, numIntermediateConvLayers + 1, c=c, convK=k, poolK=poolKernel)  # Add one for input
         f1 = getFlatSize(l_in, 1, c=c, convK=k, poolK=poolKernel)  # one for input
 
-        embeddingModel = Chain(
-            # Input linear model
-            Dense(l_in, l_in),
+        modelLayers = [
             # Input Convolution
             _getInputConvLayer(activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, withInputBatchnorm=withInputBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel)...,
             # Intermediate Convolutions
@@ -181,8 +179,22 @@ module Model
             flatten,
             # FC Readouts
             _getFCOutput(flatSize, embDim, numFCLayers, withDropout=withDropout, activation=FCAct, withBatchnorm=withBatchnorm)...,
-        ) |> DEVICE
-        
+        ]
+
+        if inputLinearModel == true
+            # Input linear model
+            modelLayers = ([Dense(l_in, l_in)]..., modelLayers...)
+        end
+
+        if normalizeEmbeddings == true
+            # L2 Normalize across the embedding dimension
+            # X shape is <embedding_dim x bsize>
+            modelLayers = (modelLayers..., [x -> x ./ sqrt.(sum(x .^ 2, dims=1))]...)
+        end
+
+
+        embeddingModel = Chain(modelLayers...) |> DEVICE
+
         return embeddingModel
     end
 
@@ -209,7 +221,7 @@ module Model
          y23::ArrayType; embeddingModel, lReg::Float64=1.0, rReg::Float64=0.1)
 
         # Xacr, Xpos, Xneg, y12, y13, y23 = tensorBatch
-        # FIXME: The below are done on CPU to avoid scalar indexing issues
+
         Embacr = embeddingModel(Xacr)
         Embpos = embeddingModel(Xpos)
         Embneg = embeddingModel(Xneg)
@@ -220,9 +232,9 @@ module Model
             @assert any(isnan,Embneg) == false
         end
 
-        posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, args.DISTANCE_METHOD, dims=1) |> DEVICE  # 1D dist vector of size bsize
-        negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, args.DISTANCE_METHOD, dims=1) |> DEVICE
-        PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, args.DISTANCE_METHOD, dims=1) |> DEVICE
+        posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, args.DISTANCE_METHOD, dims=1)  # 1D dist vector of size bsize
+        negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, args.DISTANCE_METHOD, dims=1)
+        PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, args.DISTANCE_METHOD, dims=1)
 
         threshold = y13 - y12  # Positive
 

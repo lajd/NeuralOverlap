@@ -78,7 +78,7 @@ module Dataset
         getSeqIdMap() = seqIdMap
         getIdSeqDataMap() = idSeqDataMap
         getDistance(id1, id2) = distanceMatrix[id1, id2]
-        meanDistance = meanDistance
+        getMeanDistance() = meanDistance
         numSeqs() = numSequences
 
         function getNNs(id)
@@ -95,9 +95,8 @@ module Dataset
 
             while areUnique != true
                 ida = rand(1:numSequences)  # Anchor
-                # Choose positive/negative sample from 100 nearest neighbours
+                # Choose positive/negative sample from top K nearest neighbours
                 # Don't allow the pos/neg ID to be the same as the anchor (start index 2)
-                # TODO: For negative sample, sample randomly?
                 a_nns = idSeqDataMap[ida]["topKNN"][startIndex:sampledTripletNNs + 1]  # Only consider the top K NNs when creating the triplets
 
                 # Sample both I and J from NNs
@@ -289,7 +288,7 @@ module Dataset
 
         ()->(numSeqs;getDistanceMatrix;getSeqIdMap;getIdSeqDataMap;getDistance;getTripletDict;
         getTripletBatch;numCollisions;shuffleTripletBatch!;extractBatches;batchToTuple;
-        formatOneHotSequenceArray;getNNs;batchTuplesProducer;meanDistance)
+        formatOneHotSequenceArray;getNNs;batchTuplesProducer;getMeanDistance)
     end
 
 

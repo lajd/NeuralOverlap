@@ -1,7 +1,7 @@
 """
 # module SequenceDataset
 
-- Julia version: 
+- Julia version:
 - Author: jon
 - Date: 2021-12-11
 
@@ -34,7 +34,7 @@ module SequenceDataset
         end
 
         sequenceArray = collect(sequenceSet)
-        
+
         n = min(maxSequences, length(sequenceArray))
         if isnothing(maxSequences) == false
             sequenceArray = sample(sequenceArray, n, replace=false)
