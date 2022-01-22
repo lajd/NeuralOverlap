@@ -84,7 +84,7 @@ module Model
                 i += 1
                 if withBatchnorm
                     push!(layers, Conv((k,), c => c, identity; bias = false, stride=1, pad=1))
-                    push!(layers, BatchNorm(c, activation))
+                    push!(layers, BatchNorm(c, identity))
                     push!(layers, pool)
                     if mod(i, convActivationMod) == 0
                         push!(layers, x -> activation.(x))
@@ -225,6 +225,7 @@ module Model
         Embacr = embeddingModel(Xacr)
         Embpos = embeddingModel(Xpos)
         Embneg = embeddingModel(Xneg)
+
 
         if args.DEBUG
             @assert any(isnan,Embacr) == false

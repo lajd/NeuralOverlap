@@ -59,14 +59,14 @@ module ExperimentParams
         CONV_ACTIVATION_MOD = 1
 
         # Pooling
-        POOLING_METHOD= "mean"
-        POOL_KERNEL= 2
+        POOLING_METHOD = "mean"
+        POOL_KERNEL = 2
 
         # Model
         OUT_CHANNELS = 8
         KERNEL_SIZE = 3
         EMBEDDING_DIM = 128
-        DISTANCE_METHOD="l2"
+        DISTANCE_METHOD ="l2"
 
         L2_NORMALIZE_EMBEDDINGS = true
 
@@ -79,7 +79,7 @@ module ExperimentParams
         K_START = 1
         K_END = 1001
         K_STEP = 10
-        SAMPLED_TOP_K_NEIGHBOURS=100
+        SAMPLED_TOP_K_NEIGHBOURS = 100
 
         FAISS_TRAIN_SIZE = 5000
 

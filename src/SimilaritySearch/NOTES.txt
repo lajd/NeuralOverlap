@@ -4,4 +4,3 @@ using .VectorSearch
 faiss = VectorSearch.FaissIndex(128)
 faiss.train!(rand(128, 10000))
 faiss.add!(rand(128, 512))
-

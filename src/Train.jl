@@ -313,10 +313,10 @@ PipeCleanerArgs = ExperimentParams.ExperimentArgs(
 
 ExperimentArgs = [
         ExperimentParams.ExperimentArgs(
-        NUM_EPOCHS=100,
-        NUM_BATCHES=64,  #
+        NUM_EPOCHS=20,
+        NUM_BATCHES=512,  #
         MAX_STRING_LENGTH=64,
-        BSIZE=4096,
+        BSIZE=2048,
         NUM_INTERMEDIATE_CONV_LAYERS=2,
         CONV_ACTIVATION=relu,
         WITH_INPUT_BATCHNORM=false,
@@ -338,10 +338,10 @@ ExperimentArgs = [
 #             40 => (1., 0.01),
 #         ),
         K_START = 1,
-        K_END = 1001,
-        K_STEP = 10,
-        NUM_NNS=1000,
-        SAMPLED_TOP_K_NEIGHBOURS=100,
+        K_END = 15001,
+        K_STEP = 100,
+        NUM_NNS=15000,
+        SAMPLED_TOP_K_NEIGHBOURS=200,
         POOLING_METHOD="mean",
         DISTANCE_METHOD="l2",
         DISTANCE_MATRIX_NORM_METHOD="mean",
@@ -349,21 +349,14 @@ ExperimentArgs = [
         NUM_TRAIN_EXAMPLES=20000,
         NUM_EVAL_EXAMPLES=20000,
         NUM_TEST_EXAMPLES=200,
-        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
-        # KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
+        # KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
+        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
         # KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="inverseDistance",
         USE_SYNTHETIC_DATA=false,
         USE_SEQUENCE_DATA=true,
     ),
 ]
 
-
-########
-# Pairwise distances (L=32, N=20k -> 1min)
-#
-#
-#
-#
 
 USE_PIPE_CLEANER = false
 
