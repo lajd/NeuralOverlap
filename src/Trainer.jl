@@ -136,20 +136,88 @@ function TrainingExperiment(experimentParams::ExperimentParams)
         return embeddingModel
     end
 
+    function evaluate!(trainDataHelper, evalDataHelper, model, meter, denormFactor, epoch, bestMeanAbsEvalError)
+        @allowscalar begin
+            # Training dataset
+            Utils.evaluateModel(
+                trainDataHelper, model, denormFactor, numNN=args.NUM_NNS_EXTRACTED,
+                plotsSavePath=args.PLOTS_SAVE_DIR, identifier=string("training_epoch_", epoch),
+                kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP,
+                estErrorN=args.EST_ERROR_N, bSize=args.BSIZE
+            )
 
-    function train(model, trainDataHelper, evalDataHelper, opt; numEpochs::Int64 = 100, evalEvery::Int64 = 5)
+            # Evaluation dataset
+            meanAbsEvalError, maxAbsEvalError, minAbsEvalError,
+            totalAbsEvalError, meanEstimationError,
+            recallDict, linearEditDistanceModel = Utils.evaluateModel(
+                evalDataHelper, model, denormFactor, numNN=args.NUM_NNS_EXTRACTED,
+                plotsSavePath=args.PLOTS_SAVE_DIR, identifier=string("evaluation_epoch_", epoch),
+                kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP,
+                estErrorN=args.EST_ERROR_N, bSize=args.BSIZE
+            )
 
-        meter = ExperimentHelper.ExperimentMeter()
-        bestMeanAbsEvalError = 1e6
+            meter.addValidationError!(
+                meanAbsEvalError, maxAbsEvalError, minAbsEvalError,
+                totalAbsEvalError, meanEstimationError,
+                recallDict, linearEditDistanceModel
+            )
 
-        maxgsArray = [];  mingsArray = []; meangsArray = []
+            experimentLossDict = meter.experimentLossDict["trainingLosses"]
+            absValidationErrorDict = meter.errorDict["absValidationError"]
+            n = length(experimentLossDict["totalLoss"])
+            m = length(absValidationErrorDict["mean"])
 
-        @printf("Beginning training...\n")
 
-        nbs = args.NUM_BATCHES
-        # Get initial scaling for epoch
-        lReg, rReg = Model.getLossScaling(0, args.LOSS_STEPS_DICT, args.L0rank, args.L0emb)
+            fig = plot(
+                [i for i in 1:n],
+                [experimentLossDict["totalLoss"], experimentLossDict["rankLoss"], experimentLossDict["embeddingLoss"]],
+                label=["training loss" "rank loss" "embedding loss"],
+#                     yaxis=:log,
+                xlabel="Epoch",
+                ylabel="Loss"
+            )
+            savefig(fig, joinpath(args.PLOTS_SAVE_DIR, "training_losses.png"))
 
+            fig = plot(
+                [i * args.EVAL_EVERY for i in 1:m],
+                [absValidationErrorDict["mean"], absValidationErrorDict["max"], absValidationErrorDict["min"]],
+                label=["Val Mean Abs Error" "Val Max Abs Error" "Val Min Abs Error"],
+#                     yaxis=:log,
+                xlabel="Epoch",
+                ylabel="Error"
+            )
+            savefig(fig, joinpath(args.PLOTS_SAVE_DIR, "validation_error.png"))
+
+            # Save the model, removing old ones
+            if epoch > 1 && meanAbsEvalError < bestMeanAbsEvalError
+                SaveModelTime = @elapsed begin
+                    @printf("Saving new model...\n")
+                    bestMeanAbsEvalError = Float64(meanAbsEvalError)
+                    Utils.removeOldModels(args.MODEL_SAVE_DIR)
+                    # Save the model
+                    JLD2.save(
+                       joinpath(args.MODEL_SAVE_DIR, string("epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError, ".jld2")),
+                       Dict(
+                            "embedding_model" => model |> cpu,
+                            "distance_calibration_model" => linearEditDistanceModel,
+                            "denormFactor" => denormFactor
+                        )
+                    )
+                end
+                @printf("Save moodel time %s\n", SaveModelTime)
+            end
+        end
+    end
+
+
+    function train(model, trainDataHelper, evalDataHelper, opt;)
+        if args.DISTANCE_MATRIX_NORM_METHOD == "max"
+            denormFactor = args.MAX_STRING_LENGTH
+        elseif args.DISTANCE_MATRIX_NORM_METHOD == "mean"
+            denormFactor = trainDataHelper.getMeanDistance()
+        else
+            throw("Invalid distance matrix norm method")
+        end
 
         if args.DISTANCE_MATRIX_NORM_METHOD == "max"
             denormFactor = args.MAX_STRING_LENGTH
@@ -159,9 +227,18 @@ function TrainingExperiment(experimentParams::ExperimentParams)
             throw("Invalid distance matrix norm method")
         end
 
+        meter = ExperimentHelper.ExperimentMeter()
+        bestMeanAbsEvalError = 1e6
+
+        @printf("Beginning training...\n")
+
+        nbs = args.NUM_BATCHES
+        # Get initial scaling for epoch
+        lReg, rReg = Model.getLossScaling(0, args.LOSS_STEPS_DICT, args.L0rank, args.L0emb)
+
         modelParams = params(model)
 
-        for epoch in 1:numEpochs
+        for epoch in 1:args.NUM_EPOCHS
 
             meter.newEpoch!()
 
@@ -179,6 +256,8 @@ function TrainingExperiment(experimentParams::ExperimentParams)
                 end
 
                 for (ids_and_reads, tensorBatch) in epochBatchChannel
+                    meter.newBatch!()
+
                     meter.epochTimingDict["timeSpentFetchingData"] += @elapsed begin
                         tensorBatch = tensorBatch |> DEVICE
                     end
@@ -195,8 +274,7 @@ function TrainingExperiment(experimentParams::ExperimentParams)
 
                     meter.epochTimingDict["timeSpentBackward"] += @elapsed begin
                         if args.DEBUG
-                            maxgs, mings, meangs = Utils.validateGradients(gs)
-                            push!(maxgsArray, maxgs); push!(mingsArray, mings);  push!(meangsArray, meangs)
+                            meter.addBatchGS!(Utils.validateGradients(gs)...)
                         end
 
                         update!(opt, modelParams, gs)
@@ -215,101 +293,23 @@ function TrainingExperiment(experimentParams::ExperimentParams)
 
 
                 # End of epoch
+                # Store training results and log
                 meter.storeTrainingEpochLosses!()
-
-
-                @printf("-----Training dataset-----\n")
-                @printf("Experiment dir is: %s\n", args.EXPERIMENT_DIR)
-                @printf("Epoch %s stats:\n", epoch)
-                @printf("Average loss sum: %s, Average Rank loss: %s, Average Embedding loss %s\n", meter.getEpochLosses()...)
-                @printf("lReg: %s, rReg: %s\n", lReg, rReg)
-                @printf("DataFetchTime %s, TimeForward %s, TimeBackward %s\n", meter.getEpochTimeResults()...)
+                meter.logEpochResults!(args, epoch, lReg, rReg)
 
                 if args.DEBUG
-                    @printf("maxGS: %s, minGS: %s, meanGS: %s\n", maximum(maxgsArray), minimum(mingsArray), mean(meangsArray))
+                    @printf("maxGS: %s, minGS: %s, meanGS: %s\n", meter.getEpochStatsGS())
                 end
 
 
-                if mod(epoch, evalEvery) == 0
+                if mod(epoch, args.EVAL_EVERY) == 0
                     evaluateTime = @elapsed begin
                         @printf("-----Evaluation dataset-----\n")
                         trainmode!(model, false)
 
-                        @allowscalar begin
-                            # Training dataset
-                            Utils.evaluateModel(
-                                trainDataHelper, model, denormFactor, numNN=args.NUM_NNS_EXTRACTED,
-                                plotsSavePath=args.PLOTS_SAVE_DIR, identifier=string("training_epoch_", epoch),
-                                kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP,
-                                estErrorN=args.EST_ERROR_N, bSize=args.BSIZE
-                            )
+                        # Run evaluation
+                        evaluate!(trainDataHelper, evalDataHelper, model, meter, denormFactor, epoch, bestMeanAbsEvalError)
 
-                            # Evaluation dataset
-                            meanAbsEvalError, maxAbsEvalError, minAbsEvalError,
-                            totalAbsEvalError, meanEstimationError,
-                            recallDict, linearEditDistanceModel = Utils.evaluateModel(
-                                evalDataHelper, model, denormFactor, numNN=args.NUM_NNS_EXTRACTED,
-                                plotsSavePath=args.PLOTS_SAVE_DIR, identifier=string("evaluation_epoch_", epoch),
-                                kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP,
-                                estErrorN=args.EST_ERROR_N, bSize=args.BSIZE
-                            )
-
-                            meter.addValidationError!(
-                                meanAbsEvalError, maxAbsEvalError, minAbsEvalError,
-                                totalAbsEvalError, meanEstimationError,
-                                recallDict, linearEditDistanceModel
-                            )
-
-                            experimentLossDict = meter.experimentLossDict["trainingLosses"]
-                            absValidationErrorDict = meter.errorDict["absValidationError"]
-                            n = length(experimentLossDict["totalLoss"])
-                            m = length(absValidationErrorDict["mean"])
-
-
-                            fig = plot(
-                                [i * evalEvery for i in 1:n],
-                                [experimentLossDict["totalLoss"], experimentLossDict["rankLoss"], experimentLossDict["embeddingLoss"]],
-                                label=["training loss" "rank loss" "embedding loss"],
-            #                     yaxis=:log,
-                                xlabel="Epoch",
-                                ylabel="Loss"
-                            )
-                            savefig(fig, joinpath(args.PLOTS_SAVE_DIR, "training_losses.png"))
-
-                            fig = plot(
-                                [i * evalEvery for i in 1:m],
-                                [absValidationErrorDict["mean"], absValidationErrorDict["max"], absValidationErrorDict["min"]],
-                                label=["Val Mean Abs Error" "Val Max Abs Error" "Val Min Abs Error"],
-            #                     yaxis=:log,
-                                xlabel="Epoch",
-                                ylabel="Error"
-                            )
-                            savefig(fig, joinpath(args.PLOTS_SAVE_DIR, "validation_error.png"))
-
-                            # Save the model, removing old ones
-                            if epoch > 1 && meanAbsEvalError < bestMeanAbsEvalError
-                                SaveModelTime = @elapsed begin
-                                    # Save the embedding model
-                                    @printf("Saving new model...\n")
-                                    bestMeanAbsEvalError = meanAbsEvalError
-                                    Utils.removeOldModels(args.MODEL_SAVE_DIR)
-                                    emeddingModelCPU = model |> cpu
-
-                                    # Save the linear calibration model
-                                    modelName = string("epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError)
-
-                                   JLD2.save(
-                                       joinpath(args.MODEL_SAVE_DIR, string(modelName, ".jld2")),
-                                       Dict(
-                                            "embedding_model" => emeddingModelCPU,
-                                            "distance_calibration_model" => linearEditDistanceModel,
-                                            "denormFactor" => denormFactor
-                                        )
-                                   )
-                                end
-                                @printf("Save moodel time %s\n", SaveModelTime)
-                            end
-                        end
                     end
                     @printf("Evaluation time %s\n", evaluateTime)
                 end
@@ -379,10 +379,10 @@ function TrainingExperiment(experimentParams::ExperimentParams)
         plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset")
         plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset", sampledTopKNNs=args.NUM_NNS_SAMPLED_DURING_TRAINING)
 
-        train(embeddingModel, trainDatasetHelper, evalDatasetHelper, opt, numEpochs=args.NUM_EPOCHS, evalEvery=args.EVAL_EVERY)
+        train(embeddingModel, trainDatasetHelper, evalDatasetHelper, opt)
 
     end
-    () -> (execute;getOptimizer;train;getDatasetSplit)
+    () -> (execute;getOptimizer;train;getDatasetSplit;evaluate)
 end
 
 

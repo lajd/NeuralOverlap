@@ -1,4 +1,6 @@
 module ExperimentHelper
+    using Printf
+
     using Flux
     using Parameters
     using Dates
@@ -59,6 +61,12 @@ module ExperimentHelper
             "timeSpentBackward" => 0.
         )
 
+        epochStatsGS = Dict(
+            "min" => 0.,
+            "max" => 0.,
+            "mean" => 0.
+        )
+
 
         function newEpoch!()
             for epochDict in (epochLossDict, epochTimingDict)
@@ -69,12 +77,22 @@ module ExperimentHelper
             epochNumber += 1
         end
 
+        function newBatch!()
+            epochBatchCount += 1
+        end
+
         function addBatchLoss!(batchTotalLoss::Float64, batchEmbeddingLoss::Float64, batchRankLoss::Float64)
             epochLossDict["epochRankLoss"] += batchRankLoss
             epochLossDict["epochEmbeddingLoss"] += batchEmbeddingLoss
             epochLossDict["epochTotalLoss"] += batchTotalLoss
-            epochBatchCount += 1
         end
+
+        function addBatchGS!(mings::Float64, maxgs::Float64, meangs::Float64)
+            epochStatsGS["min"] += mings
+            epochStatsGS["max"] += maxgs
+            epochStatsGS["mean"] += meangs
+        end
+
 
         function storeTrainingEpochLosses!()
             push!(experimentLossDict["trainingLosses"]["totalLoss"], epochLossDict["epochTotalLoss"]/epochBatchCount);
@@ -91,6 +109,11 @@ module ExperimentHelper
         function getEpochTimeResults()::Array{Float64}
             n = epochBatchCount
             return [r/n for r in (epochTimingDict["timeSpentFetchingData"], epochTimingDict["timeSpentForward"], epochTimingDict["timeSpentBackward"])]
+        end
+
+        function getEpochStatsGS()::Array{Float64}
+            n = epochBatchCount
+            return [s/n for s in (epochStatsGS["max"], epochStatsGS["min"], epochStatsGS["mean"])]
         end
 
         function addTrainingError!(meanAbsError::Float64, maxAbsError::Float64, minAbsError::Float64, totalAbsError::Float64, meanEstimateionError::Float64, recallDict::Dict, calibrationModel)
@@ -114,7 +137,18 @@ module ExperimentHelper
             evaluationNumber += 1
         end
 
-        () -> (newEpoch!;addBatchLoss!;storeTrainingEpochLosses!;getEpochLosses;getEpochTimeResults;addTrainingError!;addValidationError!;evaluationNumber;epochNumber;epochBatchCount;errorDict;experimentLossDict;epochLossDict;epochTimingDict)
+        function logEpochResults!(args, epoch, lReg, rReg)
+            @printf("-----Training dataset-----\n")
+            @printf("Experiment dir is: %s\n", args.EXPERIMENT_DIR)
+            @printf("Epoch %s stats:\n", epoch)
+            @printf("Average loss sum: %s, Average Rank loss: %s, Average Embedding loss %s\n", getEpochLosses()...)
+            @printf("lReg: %s, rReg: %s\n", lReg, rReg)
+            @printf("DataFetchTime %s, TimeForward %s, TimeBackward %s\n", getEpochTimeResults()...)
+        end
+
+        () -> (newEpoch!;addBatchLoss!;storeTrainingEpochLosses!;getEpochLosses;getEpochTimeResults;addTrainingError!;addValidationError!;
+            evaluationNumber;epochNumber;epochBatchCount;errorDict;experimentLossDict;epochLossDict;epochTimingDict;logEpochResults!;
+            bestMeanAbsEvalError;addBatchGS!;getEpochStatsGS;newBatch!)
 
     end
 
