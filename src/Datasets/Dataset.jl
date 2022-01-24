@@ -5,7 +5,7 @@ module Dataset
     using StatsBase
 
     using Flux
-    using Flux: onehotbatch
+    using Flux: onehot
 
     using Zygote: gradient, @ignore
     using Distances
@@ -17,31 +17,31 @@ module Dataset
 
     using ..DatasetUtils: one_hot_encode_sequences, _one_hot_encode_sequence, one_hot_encode_sequence_batch, format_one_hot_sequence_array, plot_knn_distances, plot_triplet_batch_distances
 
-    function DatasetHelper(sequences::Array{String}, maxSequenceLength::Int64,
-         alphabet::Vector{Char}, alphabetSymbols::Vector{Symbol},
+    function dataset_helper(sequences::Array{String}, max_seq_length::Int64,
+         alphabet::Vector{Char}, alphabet_symbols::Vector{Symbol},
          pairwise_distanceFun::Function, weightFunctionMethod::String,
-         distanceMatNormMethod::String="max", numNN::Int64=100, sampledTripletNNs::Int64=100)
+         distance_matrixNormMethod::String="max", numNN::Int64=100, sampled_triplet_nns::Int64=100)
 
-        sampledTripletNNs = min(sampledTripletNNs, numNN - 1)
-        numSequences = length(sequences)
+        sampled_triplet_nns = min(sampled_triplet_nns, numNN - 1)
+        n_sequences = length(sequences)
         @info("Creating dataset from sequences...\n")
-        @printf("Using dataset with %s sequences\n", numSequences)
+        @printf("Using dataset with %s sequences\n", n_sequences)
 
         timeGetone_hot_encode_sequences = @elapsed begin
-            oneHotEncodedSequences = one_hot_encode_sequences(sequences, maxSequenceLength, alphabetSymbols)
+            oneHotEncodedSequences = one_hot_encode_sequences(sequences, max_seq_length, alphabet_symbols)
         end
 
         @printf("Time to format one-hot sequences: %ss\n", timeGetone_hot_encode_sequences)
 
         timeGetpairwise_distances = @elapsed begin
-            seqIdMap, distanceMatrix = pairwise_distanceFun(sequences)
-            meanDistance = mean(distanceMatrix)
+            seqIdMap, true_distance_matrix = pairwise_distanceFun(sequences)
+            meanDistance = mean(true_distance_matrix)
             # Normalize distance matrix by maximum length
-            if distanceMatNormMethod == "mean"
-                distanceMatrix = distanceMatrix / meanDistance
+            if distance_matrixNormMethod == "mean"
+                true_distance_matrix = true_distance_matrix / meanDistance
 
-            elseif distanceMatNormMethod == "max"
-                distanceMatrix = distanceMatrix / maxSequenceLength
+            elseif distance_matrixNormMethod == "max"
+                true_distance_matrix = true_distance_matrix / max_seq_length
 
             else
                 throw("Invalid normalization scheme")
@@ -49,10 +49,10 @@ module Dataset
         end
         @printf("Time to calculate pairwise ground-truth distances: %ss\n", timeGetpairwise_distances)
 
-        timeCreateIDSeqDataMap = @elapsed begin
-            idSeqDataMap = Dict()
+        timeCreateid_seq_data_map = @elapsed begin
+            id_seq_data_map = Dict()
 
-            numNN = min(numSequences, numNN)
+            numNN = min(n_sequences, numNN)
 
             # Weights
             @printf("Using sampling method %s\n", weightFunctionMethod)
@@ -60,27 +60,27 @@ module Dataset
 
             numCollisions = 0
             for (seq, id) in seqIdMap
-                idSeqDataMap[id] = Dict(
+                id_seq_data_map[id] = Dict(
                     "seq" => seq,
                     "oneHotSeq" => oneHotEncodedSequences[id],
-                    "topKNN" => sortperm(distanceMatrix[id, 1:end])[1:numNN]  # Index 1 is always itself
+                    "topKNN" => sortperm(true_distance_matrix[id, 1:end])[1:numNN]  # Index 1 is always itself
                 )
             end
         end
-        @printf("Time to create idSeqDataMap: %ss\n", timeCreateIDSeqDataMap)
+        @printf("Time to create id_seq_data_map: %ss\n", timeCreateid_seq_data_map)
 
-        getDistanceMatrix() = distanceMatrix
+        get_distance_matrix() = true_distance_matrix
         getSeqIdMap() = seqIdMap
-        getIdSeqDataMap() = idSeqDataMap
-        getDistance(id1, id2) = distanceMatrix[id1, id2]
-        getMeanDistance() = meanDistance
-        numSeqs() = numSequences
+        get_id_seq_data_map() = id_seq_data_map
+        getDistance(id1, id2) = true_distance_matrix[id1, id2]
+        get_mean_distance() = meanDistance
+        numSeqs() = n_sequences
 
         function getNNs(id)
-            return idSeqDataMap[id]["topKNN"]
+            return id_seq_data_map[id]["topKNN"]
         end
 
-        @info("Dataset contains: %s unique sequences", numSequences)
+        @info("Dataset contains: %s unique sequences", n_sequences)
         function _get_valid_triplet(startIndex = 2)
             areUnique = false
 
@@ -89,10 +89,10 @@ module Dataset
             numCollisions = 0
 
             while areUnique != true
-                ida = rand(1:numSequences)  # Anchor
+                ida = rand(1:n_sequences)  # Anchor
                 # Choose positive/negative sample from top K nearest neighbours
                 # Don't allow the pos/neg ID to be the same as the anchor (start index 2)
-                a_nns = idSeqDataMap[ida]["topKNN"][startIndex:sampledTripletNNs + 1]  # Only consider the top K NNs when creating the triplets
+                a_nns = id_seq_data_map[ida]["topKNN"][startIndex:sampled_triplet_nns + 1]  # Only consider the top K NNs when creating the triplets
 
                 # Sample both I and J from NNs
                 if weightFunctionMethod == "uniform"
@@ -101,7 +101,7 @@ module Dataset
                 elseif weightFunctionMethod == "ranked"
                     # If only I is sampled using the ranked formulation, J
                     # will typically be a sequence which is ranom WRT the reference
-                    rankedPositiveSamplingWeights = ProbabilityWeights(Array(range(sampledTripletNNs, 1,step=-1) / sum(range(sampledTripletNNs, 1, step=-1))))
+                    rankedPositiveSamplingWeights = ProbabilityWeights(Array(range(sampled_triplet_nns, 1,step=-1) / sum(range(sampled_triplet_nns, 1, step=-1))))
                     i = sample(a_nns, rankedPositiveSamplingWeights)
                     j = sample(a_nns, rankedPositiveSamplingWeights)
                 elseif weightFunctionMethod == "inverseDistance"
@@ -114,11 +114,11 @@ module Dataset
                     throw("Invalid sampling method %s", weightFunctionMethod)
                 end
 
-                dai = distanceMatrix[ida, i]
-                daj = distanceMatrix[ida, j]
+                dai = true_distance_matrix[ida, i]
+                daj = true_distance_matrix[ida, j]
 
                 # TODO: Assumes distance is symmetric
-                dpn = distanceMatrix[i, j]
+                dpn = true_distance_matrix[i, j]
 
                 # Note: Here we don't allow the same string to be compared with itself
                 # Obtain sampling weight function
@@ -148,17 +148,17 @@ module Dataset
 
             return Dict(
                 # Seqs
-                "Sacr" => idSeqDataMap[idAcr]["seq"],
-                "Spos" => idSeqDataMap[idPos]["seq"],
-                "Sneg" => idSeqDataMap[idNeg]["seq"],
+                "Sacr" => id_seq_data_map[idAcr]["seq"],
+                "Spos" => id_seq_data_map[idPos]["seq"],
+                "Sneg" => id_seq_data_map[idNeg]["seq"],
                 # Ids
                 "Idacr" => idAcr,
                 "Idpos" => idPos,
                 "Idneg" => idNeg,
                 # OneHots
-                "Xacr" => idSeqDataMap[idAcr]["oneHotSeq"],
-                "Xpos" => idSeqDataMap[idPos]["oneHotSeq"],
-                "Xneg" => idSeqDataMap[idNeg]["oneHotSeq"],
+                "Xacr" => id_seq_data_map[idAcr]["oneHotSeq"],
+                "Xpos" => id_seq_data_map[idPos]["oneHotSeq"],
+                "Xneg" => id_seq_data_map[idNeg]["oneHotSeq"],
                 # Distances
                 "Dpos" => dPos,
                 "Dneg" => dNeg,
@@ -166,7 +166,7 @@ module Dataset
             )
         end
 
-        function getTripletBatch(n::Int64)
+        function get_triplet_batch(n::Int64)
 
             batch = Dict(
                 # Seqs
@@ -263,9 +263,9 @@ module Dataset
             return outputChunks
         end
 
-        function batchTuplesProducer(chnl, numBatches, bsize, device)
+        function get_batch_tuples_producer(chnl, numBatches, bsize, device)
             for i in 1:numBatches
-                batchDict = getTripletBatch(bsize)
+                batchDict = get_triplet_batch(bsize)
                 batchTuple = batchToTuple(batchDict)
                 ids_and_reads = batchTuple[1:6]
                 tensorBatch = batchTuple[7:end] |> device
@@ -273,9 +273,9 @@ module Dataset
             end
         end
 
-        ()->(numSeqs;getDistanceMatrix;getSeqIdMap;getIdSeqDataMap;getDistance;getTripletDict;
-        getTripletBatch;numCollisions;shuffleTripletBatch!;extractBatches;batchToTuple;
-        getNNs;batchTuplesProducer;getMeanDistance)
+        ()->(numSeqs;get_distance_matrix;getSeqIdMap;get_id_seq_data_map;getDistance;getTripletDict;
+        get_triplet_batch;numCollisions;shuffleTripletBatch!;extractBatches;batchToTuple;
+        getNNs;get_batch_tuples_producer;get_mean_distance)
     end
 
 end

@@ -18,27 +18,27 @@ module SequenceDataset
 
     using Printf
 
-    function read_sequence_data(maxSequences, maxSeqLen; fastqFilePath="/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix_train.fastq")
-        reader = open(FASTQ.Reader, fastqFilePath)
-        sequenceSet = Set{String}()
+    function read_sequence_data(max_sequences::Int64, max_sequence_length::Int64; fastq_filepath::String="/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix_train.fastq")
+        reader = open(FASTQ.Reader, fastq_filepath)
+        sequence_set = Set{String}()
 
         for r in reader
             ## Do something
             seq = String(sequence(r))
 
             # Prefix
-            push!(sequenceSet, seq[1:maxSeqLen])
+            push!(sequence_set, seq[1:max_sequence_length])
 
             # Suffix
-            push!(sequenceSet, seq[end - maxSeqLen + 1: end])
+            push!(sequence_set, seq[end - max_sequence_length + 1: end])
         end
 
-        sequenceArray = collect(sequenceSet)
+        sequence_array = collect(sequence_set)
 
-        n = min(maxSequences, length(sequenceArray))
-        if isnothing(maxSequences) == false
-            sequenceArray = sample(sequenceArray, n, replace=false)
+        n = min(max_sequences, length(sequence_array))
+        if isnothing(max_sequences) == false
+            sequence_array = sample(sequence_array, n, replace=false)
         end
-        return sequenceArray
+        return sequence_array
     end
 end

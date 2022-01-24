@@ -33,19 +33,19 @@ x4 shape torch.Size([1664, 8, 15])
 x5 shape torch.Size([64, 3120])
 """
 
-# maxSeqLen = 30
+# max_sequence_length = 30
 # outChannels = 8
-# alphabetDim = 26
+# alphabet_dim = 26
 # bSize = 64
-# embDim = 128
-# numConvLayers = 1
-# numFCLayers = 1
+# embedding_dim = 128
+# num_conv_layers = 1
+# num_readout_layers = 1
 
 
 @testset "Constants tests" begin
     @testset "Test flat size" begin
-        computedFlatSize = Constants.__get_flat_size(30, 8, 26, 1)
-        @test computedFlatSize == 3120
+        computedflat_size = Constants.__get_flat_size(30, 8, 26, 1)
+        @test computedflat_size == 3120
     end
 end
 
@@ -68,16 +68,16 @@ end
 
 
     @testset "Test TrainingDataset" begin
-        trainingDataset = Dataset.DatasetHelper(10, 10, 10, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwise_hamming_distance, args.DISTANCE_MATRIX_NORM_METHOD)
+        trainingDataset = Dataset.dataset_helper(10, 10, 10, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwise_hamming_distance, args.DISTANCE_MATRIX_NORM_METHOD)
 
-        distMat = trainingDataset.getDistanceMatrix()
+        distMat = trainingDataset.get_distance_matrix()
         seqIdMap = trainingDataset.getSeqIdMap()
-        idSeqDataMap = trainingDataset.getIdSeqDataMap()
+        id_seq_data_map = trainingDataset.get_id_seq_data_map()
 
         id1 = 1
         id2 = 5
 
-        expectedDistance = hamming(idSeqDataMap[id1]["seq"], idSeqDataMap[id2]["seq"])
+        expectedDistance = hamming(id_seq_data_map[id1]["seq"], id_seq_data_map[id2]["seq"])
 
         @assert trainingDataset.getDistance(id1, id2) == expectedDistance
 
@@ -91,12 +91,12 @@ end
 @testset "Model tests" begin
 
     @testset "load model no error" begin
-        model = Model.get_embedding_model(30, 4, 64, 3120, 128, numConvLayers=1, numFCLayers=1)
+        model = Model.get_embedding_model(30, 4, 64, 3120, 128, num_conv_layers=1, num_readout_layers=1)
     end
 
     @testset "Test single layer model" begin
-        flatSize = Constants.__get_flat_size(30, 8, 26, 1)
-        model = Model.get_embedding_model(30, 4, 64, flatSize, 128, numConvLayers=1, numFCLayers=1)
+        flat_size = Constants.__get_flat_size(30, 8, 26, 1)
+        model = Model.get_embedding_model(30, 4, 64, flat_size, 128, num_conv_layers=1, num_readout_layers=1)
         layers = model.layers
 
         x = convert.(Float32, zeros(64, 26, 30))
@@ -140,8 +140,8 @@ end
 
 
     @testset "Test multi layer model" begin
-        flatSize = Constants.__get_flat_size(30, 8, 26, 3)
-        model = Model.get_embedding_model(30, 4, 64, flatSize, 128, numConvLayers=3, numFCLayers=2)
+        flat_size = Constants.__get_flat_size(30, 8, 26, 3)
+        model = Model.get_embedding_model(30, 4, 64, flat_size, 128, num_conv_layers=3, num_readout_layers=2)
         layers = model.layers
 
         x = convert.(Float32, zeros(64, 26, 30))
@@ -223,8 +223,8 @@ end
     @testset "Test Evaluation" begin
         maxStringLength = 10
         numSeqs = 10
-        dataset = Dataset.DatasetHelper(numSeqs, maxStringLength, maxStringLength, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwise_hamming_distance, args.DISTANCE_MATRIX_NORM_METHOD)
-        batchDict = dataset.getTripletBatch(numSeqs)
+        dataset = Dataset.dataset_helper(numSeqs, maxStringLength, maxStringLength, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwise_hamming_distance, args.DISTANCE_MATRIX_NORM_METHOD)
+        batchDict = dataset.get_triplet_batch(numSeqs)
         batchTuple = dataset.batchToTuple(batchDict)
 
         reads = batchTuple[1:3]

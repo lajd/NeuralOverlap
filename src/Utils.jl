@@ -26,10 +26,10 @@ module Utils
     end
 
 
-    function pairwise_hamming_distance(seqArr::Array{String})
-        sequenceIDMap = Dict([(refSeq, i) for (i, refSeq) in enumerate(seqArr)])
-        distanceMatrix=pairwise(hamming, seqArr)
-        return sequenceIDMap, distanceMatrix
+    function pairwise_hamming_distance(sequence_array::Array{String})
+        sequenceIDMap = Dict([(refSeq, i) for (i, refSeq) in enumerate(sequence_array)])
+        true_distance_matrix=pairwise(hamming, sequence_array)
+        return sequenceIDMap, true_distance_matrix
     end
 
     function pairwise_distance(X, method="l2")
@@ -162,14 +162,14 @@ module Utils
         return recall
     end
 
-    function getTopTRecallAtK(plotsSavePath, identifier, numSequences; numNN=1000,
+    function get_top_t_recall_at_k(plot_save_path, identifier, n_sequences; numNN=1000,
         kStart=1, kEnd=1001, kStep=100, startIndex=2,
-        trueDistanceMatrix=nothing, trueIDSeqDataMap=nothing, predictedDistanceMatrix=nothing,
-        predictedIDSeqDataMap=nothing, nSample=1000
+        truetrue_distance_matrix=nothing, trueid_seq_data_map=nothing, predicted_distance_matrix=nothing,
+        predictedid_seq_data_map=nothing, nSample=1000
     )
         # Get k-nns and recall
         kValues = [k for k in range(kStart, kEnd + 1, step=kStep)]
-        recallDict = Dict(
+        epcoh_recall_dict = Dict(
             "top1Recall" => Dict([(k, 0.) for k in kValues]),
             "top5Recall" => Dict([(k, 0.) for k in kValues]),
             "top10Recall" => Dict([(k, 0.) for k in kValues]),
@@ -180,49 +180,49 @@ module Utils
 
         # TODO Randomly sample the IDs?
         startIndex = 2
-        nSample = min(nSample, numSequences)
+        nSample = min(nSample, n_sequences)
         for k in kValues
             for id in 1:nSample
                 actual_knns = nothing
                 predicted_knns = nothing
 
-                if predictedIDSeqDataMap != nothing
-                    predicted_knns = predictedIDSeqDataMap[id]["topKNN"][startIndex:numNN]
-                elseif predictedDistanceMatrix != nothing
-                    predicted_knns = sortperm(predictedDistanceMatrix[id, 1:end])[startIndex:numNN]
+                if predictedid_seq_data_map != nothing
+                    predicted_knns = predictedid_seq_data_map[id]["topKNN"][startIndex:numNN]
+                elseif predicted_distance_matrix != nothing
+                    predicted_knns = sortperm(predicted_distance_matrix[id, 1:end])[startIndex:numNN]
                 else
                     throw("Invalid")
                 end
 
-                if trueIDSeqDataMap != nothing
-                    actual_knns = trueIDSeqDataMap[id]["topKNN"][startIndex:numNN]
-                elseif trueDistanceMatrix != nothing
-                    actual_knns = sortperm(trueDistanceMatrix[id, 1:end])[startIndex:numNN]
+                if trueid_seq_data_map != nothing
+                    actual_knns = trueid_seq_data_map[id]["topKNN"][startIndex:numNN]
+                elseif truetrue_distance_matrix != nothing
+                    actual_knns = sortperm(truetrue_distance_matrix[id, 1:end])[startIndex:numNN]
                 else
                     throw("Invalid")
                 end
 
                 @assert length(predicted_knns) == length(actual_knns) (length(predicted_knns), length(actual_knns))
-                recallDict["top1Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=1, K=k)
-                recallDict["top5Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=5, K=k)
-                recallDict["top10Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=10, K=k)
-                recallDict["top25Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=25, K=k)
-                recallDict["top50Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=50, K=k)
-                recallDict["top100Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=100, K=k)
+                epcoh_recall_dict["top1Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=1, K=k)
+                epcoh_recall_dict["top5Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=5, K=k)
+                epcoh_recall_dict["top10Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=10, K=k)
+                epcoh_recall_dict["top25Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=25, K=k)
+                epcoh_recall_dict["top50Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=50, K=k)
+                epcoh_recall_dict["top100Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=100, K=k)
 
             end
         end
 
         # Normalize by the number of samples used to compute the recall sum
-        for (topNKey, sumRecallAtKDict) in recallDict
+        for (topNKey, sumRecallAtKDict) in epcoh_recall_dict
             for (kValue, sumValue) in sumRecallAtKDict
-                recallDict[topNKey][kValue] = sumValue/nSample
+                epcoh_recall_dict[topNKey][kValue] = sumValue/nSample
             end
         end
 
         # Create a single recall-item plot containing topN curves
-        averageRecallDict = Dict()
-        for (topNRecallAtK, averageRecallAtKDict) in recallDict
+        averageepcoh_recall_dict = Dict()
+        for (topNRecallAtK, averageRecallAtKDict) in epcoh_recall_dict
             recallAtKArray = []
             # Sort the keys
             sortedK = sort(collect(keys(averageRecallAtKDict)))
@@ -230,42 +230,42 @@ module Utils
                 averageRecallAtK = averageRecallAtKDict[k]
                 push!(recallAtKArray, averageRecallAtK)
             end
-            averageRecallDict[topNRecallAtK] = recallAtKArray
+            averageepcoh_recall_dict[topNRecallAtK] = recallAtKArray
         end
 
         # Save a plot to a new directory
-        saveDir = joinpath(plotsSavePath, "recall_at_k")
+        saveDir = joinpath(plot_save_path, "recall_at_k")
         mkpath(saveDir)
-        fig = plot(kValues, [averageRecallDict["top1Recall"], averageRecallDict["top5Recall"],
-            averageRecallDict["top10Recall"], averageRecallDict["top25Recall"], averageRecallDict["top50Recall"],
-            averageRecallDict["top100Recall"]], label=["top1Recall" "top5Recall" "top10Recall" "top25Recall" "top50Recall" "top100Recall"],
+        fig = plot(kValues, [averageepcoh_recall_dict["top1Recall"], averageepcoh_recall_dict["top5Recall"],
+            averageepcoh_recall_dict["top10Recall"], averageepcoh_recall_dict["top25Recall"], averageepcoh_recall_dict["top50Recall"],
+            averageepcoh_recall_dict["top100Recall"]], label=["top1Recall" "top5Recall" "top10Recall" "top25Recall" "top50Recall" "top100Recall"],
             title=string("Average recall at for samples", nSample, " samples"),
             xlabel="Number of items",
             ylabel="Recall"
             )
         savefig(fig, joinpath(saveDir, string("epoch", "_", identifier,  ".png")))
 
-        return recallDict
+        return epcoh_recall_dict
     end
 
-    function embedSequenceData(datasetHelper, idSeqDataMap, embeddingModel; bSize=512)
+    function embed_sequence_data(dataset_helper, id_seq_data_map::Dict, embedding_model; bSize::Int64=512)
 
-        n = length(idSeqDataMap)  # Number of sequences
+        n = length(id_seq_data_map)  # Number of sequences
 
-        # Xarray's index is the same as idSeqDataMap
+        # Xarray's index is the same as id_seq_data_map
         Xarray = []
         Earray = []
 
         function _encodeBatch(xarr, earr)
             formattedOneHotSeqs = format_one_hot_sequence_array(xarr)
             formattedOneHotSeqs = formattedOneHotSeqs |> DEVICE
-            emb = embeddingModel(formattedOneHotSeqs) |> Flux.cpu
-            push!(earr, embeddingModel(formattedOneHotSeqs))
+            emb = embedding_model(formattedOneHotSeqs) |> Flux.cpu
+            push!(earr, embedding_model(formattedOneHotSeqs))
         end
 
 #         formattedXArray = []
         for k in 1:n
-            v = idSeqDataMap[k]
+            v = id_seq_data_map[k]
             push!(Xarray, v["oneHotSeq"])
 
             if length(Xarray) == bSize
@@ -282,33 +282,33 @@ module Utils
         return E
     end
 
-    function _getEstimationErrorAndPlot(predDistanceArray, trueDistanceArray, plotsSavePath, identifier; calibrationModel=nothing, estimationErrorIdentifier="")
+    function _get_estimation_error_and_plot(pred_distance_array, true_distance_array, plot_save_path, identifier; epoch_calibration_model=nothing, estimationErrorIdentifier="")
         # Fit a linear model mapping predicted distances to the true distances
         # TODO: This should be fit on the training set, not the validation set
-        if isnothing(calibrationModel)
-            calibrationModel = Lathe.models.LinearLeastSquare(
-                predDistanceArray,
-                trueDistanceArray,
+        if isnothing(epoch_calibration_model)
+            epoch_calibration_model = Lathe.models.SimpleLinearRegression(
+                pred_distance_array,
+                true_distance_array,
             )
         end
 
         # Apply calibration model to the predicted distances
-        calibratedPredictedDistanceArray = calibrationModel.predict(predDistanceArray)
+        calibratedPredictedDistanceArray = epoch_calibration_model.predict(pred_distance_array)
 
         # Use the calibrated predictions for error estimation
-        absErrorArray = [abs(i - j) for (i, j) in zip(calibratedPredictedDistanceArray, trueDistanceArray)]
-        estimationErrorArray = [absError / trueDist for (absError, trueDist) in zip(absErrorArray, trueDistanceArray)]
+        absErrorArray = [abs(i - j) for (i, j) in zip(calibratedPredictedDistanceArray, true_distance_array)]
+        estimationErrorArray = [absError / true_dist for (absError, true_dist) in zip(absErrorArray, true_distance_array)]
 
-        meanAbsError = mean(absErrorArray)
-        maxAbsError = maximum(absErrorArray)
-        minAbsError = minimum(absErrorArray)
-        totalAbsError = sum(absErrorArray)
-        meanEstimationError = mean(estimationErrorArray)
+        epoch_mean_abs_error = mean(absErrorArray)
+        epoch_max_abs_error = maximum(absErrorArray)
+        epoch_min_abs_error = minimum(absErrorArray)
+        epoch_total_abs_error = sum(absErrorArray)
+        mean_estimation_error = mean(estimationErrorArray)
 
         # Plot the true/predicted estimation error
-        saveDir = joinpath(plotsSavePath, "true_vs_pred_edit_distance")
+        saveDir = joinpath(plot_save_path, "true_vs_pred_edit_distance")
         mkpath(saveDir)
-        fig = plot(scatter(trueDistanceArray, [predDistanceArray, calibratedPredictedDistanceArray],
+        fig = plot(scatter(true_distance_array, [pred_distance_array, calibratedPredictedDistanceArray],
             label=["pred" "calibrated-pred"],
             title="Edit distance predictions"),
             xlabel="true edit distance",
@@ -318,107 +318,107 @@ module Utils
         )
 
         # Add the line y=x to the figure for reference
-        plot!(fig, trueDistanceArray, trueDistanceArray)
+        plot!(fig, true_distance_array, true_distance_array)
 
         savefig(fig, joinpath(saveDir, string("epoch", "_", identifier, estimationErrorIdentifier,  ".png")))
 
         @printf("---------------%s--------------\n", estimationErrorIdentifier)
-        @printf("Mean Absolute Error is %s \n", round(meanAbsError, digits=4))
-        @printf("Max Absolute Error is %s \n", round(maxAbsError, digits=4))
-        @printf("Min abs error is %s \n", round(minAbsError, digits=4))
-        @printf("Total abs error is %s \n", round(totalAbsError, digits=4))
-        @printf("Mean relative estimation error is %s \n", round(meanEstimationError, digits=4))
+        @printf("Mean Absolute Error is %s \n", round(epoch_mean_abs_error, digits=4))
+        @printf("Max Absolute Error is %s \n", round(epoch_max_abs_error, digits=4))
+        @printf("Min abs error is %s \n", round(epoch_min_abs_error, digits=4))
+        @printf("Total abs error is %s \n", round(epoch_total_abs_error, digits=4))
+        @printf("Mean relative estimation error is %s \n", round(mean_estimation_error, digits=4))
         @printf("-------------------------------\n")
-        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel
+        return epoch_mean_abs_error, epoch_max_abs_error, epoch_min_abs_error, epoch_total_abs_error, mean_estimation_error, epoch_calibration_model
 
     end
 
-    function _getRandomlySampledTruePredDistances(distanceMatrix, predictedDistanceMatrix, n, estErrorN, denormFactor)
-        predDistanceArray = []
-        trueDistanceArray = []
+    function _get_randomly_sampled_true_pred_distances(true_distance_matrix::Array, predicted_distance_matrix::Array, n::Int64, est_error_n::Int64, denorm_factor::Float64)
+        pred_distance_array = []
+        true_distance_array = []
         # Randomly sample pairs and obtain true distance
-        for _ in 1:estErrorN
-            local trueDist = 0
+        for _ in 1:est_error_n
+            local true_dist = 0
             local id1 = id2 = nothing
-            while isapprox(trueDist, 0.) == true
+            while isapprox(true_dist, 0.) == true
                 id1 = rand(1:n)
                 id2 = rand(1:n)
-                trueDist = distanceMatrix[id1, id2] * denormFactor
+                true_dist = true_distance_matrix[id1, id2] * denorm_factor
             end
 
-            predDist = predictedDistanceMatrix[id1, id2] * denormFactor
+            pred_dist = predicted_distance_matrix[id1, id2] * denorm_factor
 
-            push!(predDistanceArray, predDist)
-            push!(trueDistanceArray, trueDist)
+            push!(pred_distance_array, pred_dist)
+            push!(true_distance_array, true_dist)
         end
-        return trueDistanceArray, predDistanceArray
+        return true_distance_array, pred_distance_array
     end
 
-    function _getNNSampledTruePredDistances(idSeqDataMap, distanceMatrix, predictedDistanceMatrix, n, estErrorN, denormFactor; startIndex=2)
+    function _getNNSampledTruePredDistances(id_seq_data_map, true_distance_matrix, predicted_distance_matrix, n, est_error_n, denorm_factor; startIndex=2)
 
         numNNsPerSample = 5
 
-        predDistanceArray = []
-        trueDistanceArray = []
+        pred_distance_array = []
+        true_distance_array = []
         # Randomly sample pairs and obtain true distance
         for id1 in 1:n
-            actual_knns = idSeqDataMap[id1]["topKNN"][startIndex:numNNsPerSample]
+            actual_knns = id_seq_data_map[id1]["topKNN"][startIndex:numNNsPerSample]
             for id2 in actual_knns
-                trueDist = distanceMatrix[id1, id2] * denormFactor
-                predDist = predictedDistanceMatrix[id1, id2] * denormFactor
-                push!(predDistanceArray, predDist)
-                push!(trueDistanceArray, trueDist)
+                true_dist = true_distance_matrix[id1, id2] * denorm_factor
+                pred_dist = predicted_distance_matrix[id1, id2] * denorm_factor
+                push!(pred_distance_array, pred_dist)
+                push!(true_distance_array, true_dist)
             end
         end
 
-        trueDistanceArray = trueDistanceArray[1: estErrorN]
-        predDistanceArray = predDistanceArray[1: estErrorN]
+        true_distance_array = true_distance_array[1: est_error_n]
+        pred_distance_array = pred_distance_array[1: est_error_n]
 
-        return trueDistanceArray, predDistanceArray
+        return true_distance_array, pred_distance_array
     end
 
-    function getEstimationError(idSeqDataMap, distanceMatrix, predictedDistanceMatrix, denormFactor; estErrorN=1000, plotsSavePath=".", identifier="", calibrationModel=nothing)
-        n = size(distanceMatrix)[1]
+    function getEstimationError(id_seq_data_map, true_distance_matrix, predicted_distance_matrix, denorm_factor; est_error_n=1000, plot_save_path=".", identifier="", epoch_calibration_model=nothing)
+        n = size(true_distance_matrix)[1]
 
-        estErrorN = min(length(idSeqDataMap), estErrorN)
+        est_error_n = min(length(id_seq_data_map), est_error_n)
 
         # Randomly sample pairs and obtain true distance
-        trueDistanceArray, predDistanceArray = _getRandomlySampledTruePredDistances(distanceMatrix, predictedDistanceMatrix, n, estErrorN, denormFactor)
+        true_distance_array, pred_distance_array = _get_randomly_sampled_true_pred_distances(true_distance_matrix, predicted_distance_matrix, n, est_error_n, denorm_factor)
 
-        meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel = _getEstimationErrorAndPlot(
-            predDistanceArray, trueDistanceArray, plotsSavePath, identifier, calibrationModel=nothing, estimationErrorIdentifier="_random_samples"
+        epoch_mean_abs_error, epoch_max_abs_error, epoch_min_abs_error, epoch_total_abs_error, mean_estimation_error, epoch_calibration_model = _get_estimation_error_and_plot(
+            pred_distance_array, true_distance_array, plot_save_path, identifier, epoch_calibration_model=nothing, estimationErrorIdentifier="_random_samples"
         )
 
         # Now consider only N samples pairs that are nearest, and recalibrate. Since we are predominantly interested
-        # in accurately predicting nearest neighbours, this is a useful data point. Here we sample estErrorN from the N nearest
+        # in accurately predicting nearest neighbours, this is a useful data point. Here we sample est_error_n from the N nearest
         # neighbours for each point.
-        trueDistanceArrayNNSampled, predDistanceArrayNNSampled = _getNNSampledTruePredDistances(
-            idSeqDataMap, distanceMatrix, predictedDistanceMatrix, n, estErrorN, denormFactor
+        true_distance_arrayNNSampled, pred_distance_arrayNNSampled = _getNNSampledTruePredDistances(
+            id_seq_data_map, true_distance_matrix, predicted_distance_matrix, n, est_error_n, denorm_factor
         )
 
-        meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel = _getEstimationErrorAndPlot(
-            predDistanceArrayNNSampled, trueDistanceArrayNNSampled, plotsSavePath, identifier, calibrationModel=nothing, estimationErrorIdentifier="_sampled_nns"
+        epoch_mean_abs_error, epoch_max_abs_error, epoch_min_abs_error, epoch_total_abs_error, mean_estimation_error, epoch_calibration_model = _get_estimation_error_and_plot(
+            pred_distance_arrayNNSampled, true_distance_arrayNNSampled, plot_save_path, identifier, epoch_calibration_model=nothing, estimationErrorIdentifier="_sampled_nns"
         )
 
-        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, calibrationModel
+        return epoch_mean_abs_error, epoch_max_abs_error, epoch_min_abs_error, epoch_total_abs_error, mean_estimation_error, epoch_calibration_model
     end
 
 
-    function evaluateModel(datasetHelper, embeddingModel, denormFactor; bSize=512,
-         method="l2", numNN=100, estErrorN=1000, plotsSavePath=".",
+    function evaluate_model(dataset_helper, embedding_model, denorm_factor; bSize=512,
+         method="l2", numNN=100, est_error_n=1000, plot_save_path=".",
          identifier="", kStart=kStart,
          kEnd=kEnd, kStep=kStep
         )
 
-        idSeqDataMap = datasetHelper.getIdSeqDataMap()
-        n = length(idSeqDataMap)
+        id_seq_data_map = dataset_helper.get_id_seq_data_map()
+        n = length(id_seq_data_map)
 
-        distanceMatrix = datasetHelper.getDistanceMatrix()
-        numSeqs = length(idSeqDataMap)
+        true_distance_matrix = dataset_helper.get_distance_matrix()
+        numSeqs = length(id_seq_data_map)
 
         timeEmbedSequences = @elapsed begin
-            Etensor = embedSequenceData(
-                datasetHelper, idSeqDataMap, embeddingModel, bSize=bSize
+            Etensor = embed_sequence_data(
+                dataset_helper, id_seq_data_map, embedding_model, bSize=bSize
             )
         end
 
@@ -428,38 +428,38 @@ module Utils
         @assert size(Etensor)[2] == n
 
 
-        timeGetPredictedDistanceMatrix = @elapsed begin
+        timeGetPredictedtrue_distance_matrix = @elapsed begin
             # Obtain inferred/predicted distance matrix
-            predictedDistanceMatrix=pairwise_distance(Etensor, method)
+            predicted_distance_matrix=pairwise_distance(Etensor, method)
         end
 
 
-        @assert size(predictedDistanceMatrix)[1] == n
-        @assert size(predictedDistanceMatrix)[2] == n
+        @assert size(predicted_distance_matrix)[1] == n
+        @assert size(predicted_distance_matrix)[2] == n
 
         timeGetRecallAtK = @elapsed begin
             # Obtain the recall dictionary for each T value, for each K value
-            recallDict = getTopTRecallAtK(plotsSavePath, identifier, n, numNN=numNN,
-                kStart=kStart, kEnd=kEnd, kStep=kStep,trueIDSeqDataMap=idSeqDataMap, predictedDistanceMatrix=predictedDistanceMatrix,
+            epcoh_recall_dict = get_top_t_recall_at_k(plot_save_path, identifier, n, numNN=numNN,
+                kStart=kStart, kEnd=kEnd, kStep=kStep,trueid_seq_data_map=id_seq_data_map, predicted_distance_matrix=predicted_distance_matrix,
             )
         end
 
         timeGetEstimationError = @elapsed begin
             # Obtain estimation error
-            meanAbsError, maxAbsError, minAbsError,
-            totalAbsError, meanEstimationError, calibrationModel = getEstimationError(
-                idSeqDataMap, distanceMatrix, predictedDistanceMatrix,
-                denormFactor, estErrorN=estErrorN, plotsSavePath=plotsSavePath,
+            epoch_mean_abs_error, epoch_max_abs_error, epoch_min_abs_error,
+            epoch_total_abs_error, mean_estimation_error, epoch_calibration_model = getEstimationError(
+                id_seq_data_map, true_distance_matrix, predicted_distance_matrix,
+                denorm_factor, est_error_n=est_error_n, plot_save_path=plot_save_path,
                 identifier=identifier
             )
         end
 
         # Log results
         @printf("Time to embed sequences: %s \n", timeEmbedSequences)
-        @printf("Time to compute pred distance matrix: %s \n", timeGetPredictedDistanceMatrix)
+        @printf("Time to compute pred distance matrix: %s \n", timeGetPredictedtrue_distance_matrix)
         @printf("Time to get recall at K: %s \n", timeGetRecallAtK)
         @printf("Time to get error estimation: %s \n", timeGetEstimationError)
-        return meanAbsError, maxAbsError, minAbsError, totalAbsError, meanEstimationError, recallDict, calibrationModel
+        return epoch_mean_abs_error, epoch_max_abs_error, epoch_min_abs_error, epoch_total_abs_error, mean_estimation_error, epcoh_recall_dict, epoch_calibration_model
     end
 
 
