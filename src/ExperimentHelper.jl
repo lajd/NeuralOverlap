@@ -7,7 +7,7 @@ module ExperimentHelper
 
     using JLD2
 
-    function stringFromParameters(parameters)
+    function string_from_parameters(parameters)
         s = []
         for p in parameters
             push!(s, string(p))
@@ -16,139 +16,139 @@ module ExperimentHelper
     end
 
 
-    function ExperimentMeter()
+    function experiment_meter()
 
-        getLossDict() = Dict(
+        get_loss_dict() = Dict(
             "totalLoss" => [],
             "rankLoss" => [],
             "embeddingLoss" => [],
         )
 
-        getErrorDict() = Dict(
+        get_error_dict() = Dict(
             "mean" => [],
             "max" => [],
             "min" => [],
             "total" => [],
         )
 
-        errorDict = Dict(
-            "absTrainingError" => getErrorDict(),
-            "absValidationError" => getErrorDict(),
+        error_dict = Dict(
+            "absTrainingError" => get_error_dict(),
+            "absValidationError" => get_error_dict(),
             "meanTrainingEstimationError" => [],
             "trainingRecallDicts" => [],
             "meanValidationEstimationError" => [],
             "validationRecallDicts" => []
         )
 
-        experimentLossDict = Dict(
-            "trainingLosses" => getLossDict(),
-            "validationLosses" => getLossDict(),
+        experiment_loss_dict = Dict(
+            "trainingLosses" => get_loss_dict(),
+            "validationLosses" => get_loss_dict(),
         )
 
-        epochNumber = 0
-        evaluationNumber = 0
-        epochBatchCount = 0
+        epoch_number = 0
+        evaluation_number = 0
+        epoch_batch_counter = 0
 
-        epochLossDict = Dict(
+        epoch_loss_dict = Dict(
             "epochRankLoss" => 0.,
             "epochEmbeddingLoss" => 0.,
             "epochTotalLoss" => 0.,
         )
 
-        epochTimingDict = Dict(
+        epoch_timing_dict = Dict(
             "timeSpentFetchingData" => 0.,
             "timeSpentForward" => 0.,
             "timeSpentBackward" => 0.
         )
 
-        epochStatsGS = Dict(
+        epoch_gs_stats = Dict(
             "min" => 0.,
             "max" => 0.,
             "mean" => 0.
         )
 
 
-        function newEpoch!()
-            for epochDict in (epochLossDict, epochTimingDict)
+        function new_epoch!()
+            for epochDict in (epoch_loss_dict, epoch_timing_dict)
                 for (k, _) in epochDict
                     epochDict[k] = 0.
                 end
             end
-            epochNumber += 1
+            epoch_number += 1
         end
 
-        function newBatch!()
-            epochBatchCount += 1
+        function new_batch!()
+            epoch_batch_counter += 1
         end
 
-        function addBatchLoss!(batchTotalLoss::Float64, batchEmbeddingLoss::Float64, batchRankLoss::Float64)
-            epochLossDict["epochRankLoss"] += batchRankLoss
-            epochLossDict["epochEmbeddingLoss"] += batchEmbeddingLoss
-            epochLossDict["epochTotalLoss"] += batchTotalLoss
+        function add_batch_loss!(batchTotalLoss::Float64, batchEmbeddingLoss::Float64, batchRankLoss::Float64)
+            epoch_loss_dict["epochRankLoss"] += batchRankLoss
+            epoch_loss_dict["epochEmbeddingLoss"] += batchEmbeddingLoss
+            epoch_loss_dict["epochTotalLoss"] += batchTotalLoss
         end
 
-        function addBatchGS!(mings::Float64, maxgs::Float64, meangs::Float64)
-            epochStatsGS["min"] += mings
-            epochStatsGS["max"] += maxgs
-            epochStatsGS["mean"] += meangs
-        end
-
-
-        function storeTrainingEpochLosses!()
-            push!(experimentLossDict["trainingLosses"]["totalLoss"], epochLossDict["epochTotalLoss"]/epochBatchCount);
-            push!(experimentLossDict["trainingLosses"]["rankLoss"], epochLossDict["epochRankLoss"]/epochBatchCount);
-            push!(experimentLossDict["trainingLosses"]["embeddingLoss"], epochLossDict["epochEmbeddingLoss"]/epochBatchCount);
-        end
-
-        function getEpochLosses()::Array{Float64}
-            n = epochBatchCount
-            return [l/n for l in (epochLossDict["epochTotalLoss"], epochLossDict["epochRankLoss"], epochLossDict["epochEmbeddingLoss"])]
+        function add_batch_gs!(mings::Float64, maxgs::Float64, meangs::Float64)
+            epoch_gs_stats["min"] += mings
+            epoch_gs_stats["max"] += maxgs
+            epoch_gs_stats["mean"] += meangs
         end
 
 
-        function getEpochTimeResults()::Array{Float64}
-            n = epochBatchCount
-            return [r/n for r in (epochTimingDict["timeSpentFetchingData"], epochTimingDict["timeSpentForward"], epochTimingDict["timeSpentBackward"])]
+        function store_epoch_training_losses!()
+            push!(experiment_loss_dict["trainingLosses"]["totalLoss"], epoch_loss_dict["epochTotalLoss"]/epoch_batch_counter);
+            push!(experiment_loss_dict["trainingLosses"]["rankLoss"], epoch_loss_dict["epochRankLoss"]/epoch_batch_counter);
+            push!(experiment_loss_dict["trainingLosses"]["embeddingLoss"], epoch_loss_dict["epochEmbeddingLoss"]/epoch_batch_counter);
         end
 
-        function getEpochStatsGS()::Array{Float64}
-            n = epochBatchCount
-            return [s/n for s in (epochStatsGS["max"], epochStatsGS["min"], epochStatsGS["mean"])]
+        function get_experiment_losses()::Array{Float64}
+            n = epoch_batch_counter
+            return [l/n for l in (epoch_loss_dict["epochTotalLoss"], epoch_loss_dict["epochRankLoss"], epoch_loss_dict["epochEmbeddingLoss"])]
         end
 
-        function addTrainingError!(meanAbsError::Float64, maxAbsError::Float64, minAbsError::Float64, totalAbsError::Float64, meanEstimateionError::Float64, recallDict::Dict, calibrationModel)
-            push!(errorDict["absTrainingError"]["mean"], meanAbsError)
-            push!(errorDict["absTrainingError"]["max"], maxAbsError)
-            push!(errorDict["absTrainingError"]["min"], minAbsError)
-            push!(errorDict["absTrainingError"]["total"], totalAbsError)
-            push!(errorDict["absTrainingError"]["total"], totalAbsError)
-            push!(errorDict["meanTrainingEstimationError"], meanAbsError)
-            push!(errorDict["validationRecallDicts"], meanAbsError)
+
+        function get_epoch_timing_results()::Array{Float64}
+            n = epoch_batch_counter
+            return [r/n for r in (epoch_timing_dict["timeSpentFetchingData"], epoch_timing_dict["timeSpentForward"], epoch_timing_dict["timeSpentBackward"])]
         end
 
-        function addValidationError!(meanAbsError::Float64, maxAbsError::Float64, minAbsError::Float64, totalAbsError::Float64, meanEstimateionError::Float64, recallDict::Dict, calibrationModel)
-            push!(errorDict["absValidationError"]["mean"], meanAbsError)
-            push!(errorDict["absValidationError"]["max"], maxAbsError)
-            push!(errorDict["absValidationError"]["min"], minAbsError)
-            push!(errorDict["absValidationError"]["total"], totalAbsError)
-            push!(errorDict["absValidationError"]["total"], totalAbsError)
-            push!(errorDict["meanValidationEstimationError"], meanAbsError)
-            push!(errorDict["validationRecallDicts"], meanAbsError)
-            evaluationNumber += 1
+        function get_epoch_gs_stats()::Array{Float64}
+            n = epoch_batch_counter
+            return [s/n for s in (epoch_gs_stats["max"], epoch_gs_stats["min"], epoch_gs_stats["mean"])]
         end
 
-        function logEpochResults!(args, epoch, lReg, rReg)
+        function add_experiment_training_error!(meanAbsError::Float64, maxAbsError::Float64, minAbsError::Float64, totalAbsError::Float64, meanEstimateionError::Float64, recallDict::Dict, calibrationModel)
+            push!(error_dict["absTrainingError"]["mean"], meanAbsError)
+            push!(error_dict["absTrainingError"]["max"], maxAbsError)
+            push!(error_dict["absTrainingError"]["min"], minAbsError)
+            push!(error_dict["absTrainingError"]["total"], totalAbsError)
+            push!(error_dict["absTrainingError"]["total"], totalAbsError)
+            push!(error_dict["meanTrainingEstimationError"], meanAbsError)
+            push!(error_dict["validationRecallDicts"], meanAbsError)
+        end
+
+        function add_experiment_validation_error!(meanAbsError::Float64, maxAbsError::Float64, minAbsError::Float64, totalAbsError::Float64, meanEstimateionError::Float64, recallDict::Dict, calibrationModel)
+            push!(error_dict["absValidationError"]["mean"], meanAbsError)
+            push!(error_dict["absValidationError"]["max"], maxAbsError)
+            push!(error_dict["absValidationError"]["min"], minAbsError)
+            push!(error_dict["absValidationError"]["total"], totalAbsError)
+            push!(error_dict["absValidationError"]["total"], totalAbsError)
+            push!(error_dict["meanValidationEstimationError"], meanAbsError)
+            push!(error_dict["validationRecallDicts"], meanAbsError)
+            evaluation_number += 1
+        end
+
+        function log_epoch_results!(args, epoch, lReg, rReg)
             @printf("-----Training dataset-----\n")
             @printf("Experiment dir is: %s\n", args.EXPERIMENT_DIR)
             @printf("Epoch %s stats:\n", epoch)
-            @printf("Average loss sum: %s, Average Rank loss: %s, Average Embedding loss %s\n", getEpochLosses()...)
+            @printf("Average loss sum: %s, Average Rank loss: %s, Average Embedding loss %s\n", get_experiment_losses()...)
             @printf("lReg: %s, rReg: %s\n", lReg, rReg)
-            @printf("DataFetchTime %s, TimeForward %s, TimeBackward %s\n", getEpochTimeResults()...)
+            @printf("DataFetchTime %s, TimeForward %s, TimeBackward %s\n", get_epoch_timing_results()...)
         end
 
-        () -> (newEpoch!;addBatchLoss!;storeTrainingEpochLosses!;getEpochLosses;getEpochTimeResults;addTrainingError!;addValidationError!;
-            evaluationNumber;epochNumber;epochBatchCount;errorDict;experimentLossDict;epochLossDict;epochTimingDict;logEpochResults!;
-            bestMeanAbsEvalError;addBatchGS!;getEpochStatsGS;newBatch!)
+        () -> (new_epoch!;add_batch_loss!;store_epoch_training_losses!;get_experiment_losses;get_epoch_timing_results;add_experiment_training_error!;add_experiment_validation_error!;
+            evaluation_number;epoch_number;epoch_batch_counter;error_dict;experiment_loss_dict;epoch_loss_dict;epoch_timing_dict;log_epoch_results!;
+            bestMeanAbsEvalError;add_batch_gs!;get_epoch_gs_stats;new_batch!)
 
     end
 
@@ -270,7 +270,7 @@ module ExperimentHelper
         ################
         # Experiment
         ################
-        EXPERIMENT_NAME::String = stringFromParameters([now()])
+        EXPERIMENT_NAME::String = string_from_parameters([now()])
         EXPERIMENT_DIR::String = joinpath("data/experiments", EXPERIMENT_NAME)
         MODEL_SAVE_DIR::String = joinpath(EXPERIMENT_DIR, "saved_models")
         DATASET_SAVE_PATH::String = joinpath(EXPERIMENT_DIR, "dataset.jld")

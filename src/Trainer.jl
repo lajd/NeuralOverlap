@@ -36,12 +36,12 @@ using Printf
 using JLD2
 using FileIO
 
-using ..Utils: pairwiseHammingDistance
-using ..ExperimentHelper: ExperimentParams, ExperimentMeter, saveArgs!, createExperimentDirs!
+using ..Utils: pairwise_hamming_distance
+using ..ExperimentHelper: ExperimentParams, experiment_meter, saveArgs!, createExperimentDirs!
 using ..Model
 
 using ..Dataset: DatasetHelper
-using ..DatasetUtils: oneHotSequences, oneHotEncodeSequence, oneHotBatchSequences, formatOneHotSequenceArray, plotKNNDistances, plotTripletBatchDistances, plotSequenceDistances
+using ..DatasetUtils: one_hot_encode_sequences, _one_hot_encode_sequence, one_hot_encode_sequence_batch, format_one_hot_sequence_array, plot_knn_distances, plot_triplet_batch_distances, plot_sequence_distances
 
 using ..SyntheticDataset
 using ..SequenceDataset
@@ -59,7 +59,7 @@ catch e
 end
 
 
-function getPipeCleanerArgs()
+function get_pipe_cleaner_args()
     return ExperimentParams(
         NUM_EPOCHS=10,
         NUM_BATCHES=4,  #
@@ -94,23 +94,23 @@ end
 
 
 
-function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::Bool=false)
+function training_experiment(experimentParams::ExperimentParams;usePipeCleaner::Bool=false)
     """ Helpers for training an experiment """
 
     args = experimentParams
     usePipeCleaner = usePipeCleaner
 
-    function getDatasetSplit()
+    function get_dataset_split()
         totalSamples = args.NUM_TRAIN_EXAMPLES + args.NUM_EVAL_EXAMPLES + args.NUM_TEST_EXAMPLES
         if args.USE_SYNTHETIC_DATA == true
-            allSequences = SyntheticDataset.generateSequences(
+            allSequences = SyntheticDataset.generate_synethetic_sequences(
                 totalSamples, args.MAX_STRING_LENGTH,
                 args.MAX_STRING_LENGTH, args.ALPHABET, ratioOfRandom=args.RATIO_OF_RANDOM_SAMPLES,
                 similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
                 )
 
         elseif args.USE_SEQUENCE_DATA == true
-            allSequences = SequenceDataset.getReadSequenceData(totalSamples, args.MAX_STRING_LENGTH, fastqFilePath="/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix174_train.fa_R1.fastq")
+            allSequences = SequenceDataset.read_sequence_data(totalSamples, args.MAX_STRING_LENGTH, fastqFilePath="/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix174_train.fa_R1.fastq")
         else
             throw("Must provide a valid dataset type")
         end
@@ -126,9 +126,9 @@ function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::B
         return trainSequences, valSequences, testSequences
     end
 
-    function getModel()
+    function get_embedding_model()
         # Create the model
-        embeddingModel = Model.getModel(
+        embeddingModel = Model.get_embedding_model(
             args.MAX_STRING_LENGTH, args.ALPHABET_DIM, args.EMBEDDING_DIM,
             numIntermediateConvLayers=args.N_INTERMEDIATE_CONV_LAYERS,
             numFCLayers=args.N_READOUT_LAYERS, FCAct=args.READOUT_ACTIVATION, ConvAct=args.CONV_ACTIVATION,
@@ -162,21 +162,21 @@ function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::B
                 estErrorN=args.EST_ERROR_N, bSize=args.BSIZE
             )
 
-            meter.addValidationError!(
+            meter.add_experiment_validation_error!(
                 meanAbsEvalError, maxAbsEvalError, minAbsEvalError,
                 totalAbsEvalError, meanEstimationError,
                 recallDict, linearEditDistanceModel
             )
 
-            experimentLossDict = meter.experimentLossDict["trainingLosses"]
-            absValidationErrorDict = meter.errorDict["absValidationError"]
-            n = length(experimentLossDict["totalLoss"])
-            m = length(absValidationErrorDict["mean"])
+            experiment_loss_dict = meter.experiment_loss_dict["trainingLosses"]
+            absValidationerror_dict = meter.error_dict["absValidationError"]
+            n = length(experiment_loss_dict["totalLoss"])
+            m = length(absValidationerror_dict["mean"])
 
 
             fig = plot(
                 [i for i in 1:n],
-                [experimentLossDict["totalLoss"], experimentLossDict["rankLoss"], experimentLossDict["embeddingLoss"]],
+                [experiment_loss_dict["totalLoss"], experiment_loss_dict["rankLoss"], experiment_loss_dict["embeddingLoss"]],
                 label=["training loss" "rank loss" "embedding loss"],
 #                     yaxis=:log,
                 xlabel="Epoch",
@@ -186,7 +186,7 @@ function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::B
 
             fig = plot(
                 [i * args.EVAL_EVERY for i in 1:m],
-                [absValidationErrorDict["mean"], absValidationErrorDict["max"], absValidationErrorDict["min"]],
+                [absValidationerror_dict["mean"], absValidationerror_dict["max"], absValidationerror_dict["min"]],
                 label=["Val Mean Abs Error" "Val Max Abs Error" "Val Min Abs Error"],
 #                     yaxis=:log,
                 xlabel="Epoch",
@@ -199,7 +199,7 @@ function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::B
                 SaveModelTime = @elapsed begin
                     @printf("Saving new model...\n")
                     bestMeanAbsEvalError = Float64(meanAbsEvalError)
-                    Utils.removeOldModels(args.MODEL_SAVE_DIR)
+                    Utils.remove_old_models(args.MODEL_SAVE_DIR)
                     # Save the model
                     JLD2.save(
                        joinpath(args.MODEL_SAVE_DIR, string("epoch_", epoch, "_", "mean_abs_error_", meanAbsEvalError, ".jld2")),
@@ -233,23 +233,23 @@ function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::B
             throw("Invalid distance matrix norm method")
         end
 
-        meter = ExperimentHelper.ExperimentMeter()
+        meter = ExperimentHelper.experiment_meter()
         bestMeanAbsEvalError = 1e6
 
         @printf("Beginning training...\n")
 
         nbs = args.NUM_BATCHES
         # Get initial scaling for epoch
-        lReg, rReg = Model.getLossScaling(0, args.LOSS_STEPS_DICT, args.L0rank, args.L0emb)
+        lReg, rReg = Model.get_loss_scaling(0, args.LOSS_STEPS_DICT, args.L0rank, args.L0emb)
 
         modelParams = params(model)
 
         for epoch in 1:args.NUM_EPOCHS
 
-            meter.newEpoch!()
+            meter.new_epoch!()
 
             # Get loss scaling for epoch
-            lReg, rReg = Model.getLossScaling(epoch, args.LOSS_STEPS_DICT, lReg, rReg)
+            lReg, rReg = Model.get_loss_scaling(epoch, args.LOSS_STEPS_DICT, lReg, rReg)
 
 
             @time begin
@@ -257,30 +257,30 @@ function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::B
                 # Set to train mode
                 trainmode!(model, true)
 
-                meter.epochTimingDict["timeSpentFetchingData"] += @elapsed begin
+                meter.epoch_timing_dict["timeSpentFetchingData"] += @elapsed begin
                     epochBatchChannel = Channel( (channel) -> trainDataHelper.batchTuplesProducer(channel, nbs, args.BSIZE, DEVICE), 1)
                 end
 
                 for (ids_and_reads, tensorBatch) in epochBatchChannel
-                    meter.newBatch!()
+                    meter.new_batch!()
 
-                    meter.epochTimingDict["timeSpentFetchingData"] += @elapsed begin
+                    meter.epoch_timing_dict["timeSpentFetchingData"] += @elapsed begin
                         tensorBatch = tensorBatch |> DEVICE
                     end
 
-                    meter.epochTimingDict["timeSpentForward"] += @elapsed begin
+                    meter.epoch_timing_dict["timeSpentForward"] += @elapsed begin
                         gs = gradient(modelParams) do
-                            rankLoss, embeddingLoss, totalLoss = Model.tripletLoss(
+                            rankLoss, embeddingLoss, totalLoss = Model.triplet_loss(
                                 args, tensorBatch..., embeddingModel=model, lReg=lReg, rReg=rReg,
                             )
-                            meter.addBatchLoss!(totalLoss, embeddingLoss, rankLoss)
+                            meter.add_batch_loss!(totalLoss, embeddingLoss, rankLoss)
                             return totalLoss
                         end
                     end
 
-                    meter.epochTimingDict["timeSpentBackward"] += @elapsed begin
+                    meter.epoch_timing_dict["timeSpentBackward"] += @elapsed begin
                         if args.DEBUG
-                            meter.addBatchGS!(Utils.validateGradients(gs)...)
+                            meter.add_batch_gs!(Utils.validate_gradients(gs)...)
                         end
 
                         update!(opt, modelParams, gs)
@@ -300,11 +300,11 @@ function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::B
 
                 # End of epoch
                 # Store training results and log
-                meter.storeTrainingEpochLosses!()
-                meter.logEpochResults!(args, epoch, lReg, rReg)
+                meter.store_epoch_training_losses!()
+                meter.log_epoch_results!(args, epoch, lReg, rReg)
 
                 if args.DEBUG
-                    @printf("maxGS: %s, minGS: %s, meanGS: %s\n", meter.getEpochStatsGS())
+                    @printf("maxGS: %s, minGS: %s, meanGS: %s\n", meter.get_epoch_gs_stats())
                 end
 
 
@@ -323,7 +323,7 @@ function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::B
         end
     end
 
-    function getOptimizer()
+    function get_optimizer()
         opt = ADAM(args.LR, (0.9, 0.999))
 
 
@@ -346,7 +346,7 @@ function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::B
 
     function execute()
         if usePipeCleaner == true
-            args = getPipeCleanerArgs()
+            args = get_pipe_cleaner_args()
         end
 
         # Initiate experiment
@@ -354,44 +354,44 @@ function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::B
         saveArgs!(args)
 
         # Create embedding model
-        embeddingModel = getModel()
+        embeddingModel = get_embedding_model()
 
         # Get optimizer
-        opt = getOptimizer()
+        opt = get_optimizer()
 
         # Get dataset split
-        trainingSequences, evalSequences, testSequences =  getDatasetSplit()
+        trainingSequences, evalSequences, testSequences =  get_dataset_split()
 
         # Training dataset
         trainDatasetHelper = DatasetHelper(
             trainingSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
-            pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
+            pairwise_hamming_distance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
             args.DISTANCE_MATRIX_NORM_METHOD, args.NUM_NNS_EXTRACTED, args.NUM_NNS_SAMPLED_DURING_TRAINING
         )
 
-        plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="training_dataset")
-        plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR, identifier="training_dataset", sampledTopKNNs=args.NUM_NNS_SAMPLED_DURING_TRAINING)
+        plot_sequence_distances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="training_dataset")
+        plot_knn_distances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR, identifier="training_dataset", sampledTopKNNs=args.NUM_NNS_SAMPLED_DURING_TRAINING)
         batchDict = trainDatasetHelper.getTripletBatch(args.BSIZE)
-        plotTripletBatchDistances(batchDict, args.PLOTS_SAVE_DIR)
+        plot_triplet_batch_distances(batchDict, args.PLOTS_SAVE_DIR)
 
         evalDatasetHelper = DatasetHelper(
             evalSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
-            pairwiseHammingDistance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
+            pairwise_hamming_distance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
             args.DISTANCE_MATRIX_NORM_METHOD, args.NUM_NNS_EXTRACTED, args.NUM_NNS_SAMPLED_DURING_TRAINING
         )
 
-        plotSequenceDistances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset")
-        plotKNNDistances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset", sampledTopKNNs=args.NUM_NNS_SAMPLED_DURING_TRAINING)
+        plot_sequence_distances(trainDatasetHelper.getDistanceMatrix(), maxSamples=1000, plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset")
+        plot_knn_distances(trainDatasetHelper.getDistanceMatrix(), trainDatasetHelper.getIdSeqDataMap(), plotsSavePath=args.PLOTS_SAVE_DIR, identifier="eval_dataset", sampledTopKNNs=args.NUM_NNS_SAMPLED_DURING_TRAINING)
 
         train(embeddingModel, trainDatasetHelper, evalDatasetHelper, opt)
 
     end
-    () -> (execute;getOptimizer;train;getDatasetSplit;evaluate)
+    () -> (execute;get_optimizer;train;get_dataset_split;evaluate)
 end
 
 
 
-function RunExperimentSet(argList::Array{ExperimentParams})
+function run_experiment_set(argList::Array{ExperimentParams})
     # for args in argList
     try
         pass
@@ -441,6 +441,6 @@ experimentArgs = ExperimentParams(
     USE_SEQUENCE_DATA=true,
 )
 
-experiment = TrainingExperiment(experimentArgs;usePipeCleaner=true)
+experiment = training_experiment(experimentArgs;usePipeCleaner=true)
 
 experiment.execute()

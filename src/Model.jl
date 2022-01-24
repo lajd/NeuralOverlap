@@ -26,7 +26,7 @@ module Model
         global ArrayType = Union{Vector{Float32}, Matrix{Float32}, Array{Float32}}
     end
 
-    function getLossScaling(epoch::Int64, regularizationSteps::Dict, lReg::Float64, rReg::Float64)::Tuple{Float64, Float64}
+    function get_loss_scaling(epoch::Int64, regularizationSteps::Dict, lReg::Float64, rReg::Float64)::Tuple{Float64, Float64}
         if haskey(regularizationSteps, epoch)
             return regularizationSteps[epoch]
         end
@@ -34,7 +34,7 @@ module Model
     end
 
 
-    function _getInputConvLayer(;k=3, c=8, activation=relu, withBatchnorm=false,
+    function _get_input_conv_layer(;k=3, c=8, activation=relu, withBatchnorm=false,
          withInputBatchnorm=false, poolingMethod="max", poolKernel=2)::Array
         # -> CONV/FC -> BatchNorm -> ReLu(or other activation) -> Dropout -> CONV/FC ->
         layers = []
@@ -61,7 +61,7 @@ module Model
         return layers
     end
 
-    function _getIntermediateConvLayers(fin, numLayers::Int64; k=3, c=8, activation=relu, withBatchnorm=false, poolingMethod="max", poolKernel=2, convActivationMod=1)::Array
+    function _get_intermediate_conv_layers(fin, numLayers::Int64; k=3, c=8, activation=relu, withBatchnorm=false, poolingMethod="max", poolKernel=2, convActivationMod=1)::Array
         # -> CONV/FC -> BatchNorm -> ReLu(or other activation) -> Dropout -> CONV/FC ->
         layers = []
 
@@ -85,7 +85,7 @@ module Model
                     if mod(i, convActivationMod) == 0
                         push!(layers, x -> activation.(x))
                     end
-                    bnDim = getConvMPSize(bnDim, 1, convK=k, poolK=poolKernel)  # Add one for input
+                    bnDim = _get_conv_mp_output_size(bnDim, 1, convK=k, poolK=poolKernel)  # Add one for input
                 else
                     push!(layers, Conv((k,), c => c, identity; bias = false, stride=1, pad=1))
                     push!(layers, pool)
@@ -98,7 +98,7 @@ module Model
         return layers
     end
 
-    function _getFCOutput(inputSize::Int64, outputSize::Int64, numLayers::Int64; activation=relu, withDropout=false, dropoutP=0.4, withBatchnorm=false)::Array
+    function _get_fc_output(inputSize::Int64, outputSize::Int64, numLayers::Int64; activation=relu, withDropout=false, dropoutP=0.4, withBatchnorm=false)::Array
         # -> CONV/FC -> BatchNorm -> ReLu(or other activation) -> Dropout -> CONV/FC ->
         layers = []
 
@@ -122,7 +122,7 @@ module Model
         return layers
     end
 
-    function getKernalOutputDim(l, k;p=1, s=1, d=1)
+    function get_kernel_output_dim(l, k;p=1, s=1, d=1)
         """
         https://pytorch.org/docs/stable/generated/torch.nn.MaxPool1d.html
         https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
@@ -131,16 +131,16 @@ module Model
         return out
     end
 
-    function convOutDim(l, k)
-        return getKernalOutputDim(l, k)
+    function _get_conv_output_dim(l, k)
+        return get_kernel_output_dim(l, k)
     end
 
-    function poolOutDim(l, k)
-        return getKernalOutputDim(l, k, p=0, s=k)
+    function _get_pool_output_dim(l, k)
+        return get_kernel_output_dim(l, k, p=0, s=k)
     end
 
-    function getConvMPSize(l_in, numConvLayers; convK=3, poolK=2)
-        out(in) = poolOutDim(convOutDim(in, convK), poolK)
+    function _get_conv_mp_output_size(l_in, numConvLayers; convK=3, poolK=2)
+        out(in) = _get_pool_output_dim(_get_conv_output_dim(in, convK), poolK)
         l_out = l_in
         for _ in 1:numConvLayers
             l_out = out(l_out)
@@ -148,33 +148,30 @@ module Model
         return l_out
     end
 
-    function getFlatSize(l_in, numConvLayers; c=8, convK=3, poolK=2)
-        out(in) = poolOutDim(convOutDim(in, convK), poolK)
-        l_out = l_in
-        for _ in 1:numConvLayers
-            l_out = out(l_out)
-        end
-        return l_out * c
+    function _get_flat_size(l_in, numConvLayers; c=8, convK=3, poolK=2)
+        conv_mp_size = _get_conv_mp_output_size(l_in, numConvLayers, convK=convK, poolK=poolK)
+        flat_size = conv_mp_size * c
+        return flat_size
     end
 
 
-    function getModel(maxSeqLen::Int64, alphabetDim, embDim::Int64; numIntermediateConvLayers::Int64=0,
+    function get_embedding_model(maxSeqLen::Int64, alphabetDim, embDim::Int64; numIntermediateConvLayers::Int64=0,
         numFCLayers::Int64=1, FCAct=relu, ConvAct=relu, k=3, c=8, withBatchnorm=false,
         withInputBatchnorm=false, withDropout=false, poolingMethod="max", poolKernel=2, convActivationMod=1, inputLinearModel=true, normalizeEmbeddings=true)::Chain
 
         l_in = maxSeqLen * alphabetDim
-        flatSize = getFlatSize(l_in, numIntermediateConvLayers + 1, c=c, convK=k, poolK=poolKernel)  # Add one for input
-        f1 = getFlatSize(l_in, 1, c=c, convK=k, poolK=poolKernel)  # one for input
+        flatSize = _get_flat_size(l_in, numIntermediateConvLayers + 1, c=c, convK=k, poolK=poolKernel)  # Add one for input
+        f1 = _get_flat_size(l_in, 1, c=c, convK=k, poolK=poolKernel)  # one for input
 
         modelLayers = [
             # Input Convolution
-            _getInputConvLayer(activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, withInputBatchnorm=withInputBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel)...,
+            _get_input_conv_layer(activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, withInputBatchnorm=withInputBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel)...,
             # Intermediate Convolutions
-            _getIntermediateConvLayers(f1, numIntermediateConvLayers, activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel, convActivationMod=convActivationMod)...,
+            _get_intermediate_conv_layers(f1, numIntermediateConvLayers, activation=ConvAct, k=k, c=c, withBatchnorm=withBatchnorm, poolingMethod=poolingMethod, poolKernel=poolKernel, convActivationMod=convActivationMod)...,
             # Flatten to vector
             flatten,
             # FC Readouts
-            _getFCOutput(flatSize, embDim, numFCLayers, withDropout=withDropout, activation=FCAct, withBatchnorm=withBatchnorm)...,
+            _get_fc_output(flatSize, embDim, numFCLayers, withDropout=withDropout, activation=FCAct, withBatchnorm=withBatchnorm)...,
         ]
 
         if inputLinearModel == true
@@ -194,15 +191,8 @@ module Model
         return embeddingModel
     end
 
-    function _reshapeOneHotSeq(x, bsize)
-        x = permutedims(x, (3, 2, 1))
-        # View as 1d
-        x = reshape(x, :, 1, bsize)
-        return x
-    end
 
-
-    function tripletLoss(args, Xacr::ArrayType, Xpos::ArrayType,
+    function triplet_loss(args, Xacr::ArrayType, Xpos::ArrayType,
          Xneg::ArrayType, y12::ArrayType, y13::ArrayType,
          y23::ArrayType; embeddingModel, lReg::Float64=1.0, rReg::Float64=0.1)
 
@@ -219,9 +209,9 @@ module Model
             @assert any(isnan,Embneg) == false
         end
 
-        posEmbedDist = Utils.EmbeddingDistance(Embacr, Embpos, args.DISTANCE_METHOD, dims=1)  # 1D dist vector of size bsize
-        negEmbedDist =  Utils.EmbeddingDistance(Embacr, Embneg, args.DISTANCE_METHOD, dims=1)
-        PosNegEmbedDist =  Utils.EmbeddingDistance(Embpos, Embneg, args.DISTANCE_METHOD, dims=1)
+        posEmbedDist = Utils.embedding_distance(Embacr, Embpos, args.DISTANCE_METHOD, dims=1)  # 1D dist vector of size bsize
+        negEmbedDist =  Utils.embedding_distance(Embacr, Embneg, args.DISTANCE_METHOD, dims=1)
+        PosNegEmbedDist =  Utils.embedding_distance(Embpos, Embneg, args.DISTANCE_METHOD, dims=1)
 
         threshold = y13 - y12  # Positive
 

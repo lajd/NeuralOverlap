@@ -57,13 +57,13 @@ INFERENCE_FASTQ = "/home/jon/JuliaProjects/NeuralOverlap/data_fetch/covid_test.f
 function getInfererenceSequences(maxSamples=Int(1e4))::Array
     # Eval Dataset
     if args.USE_SYNTHETIC_DATA == true
-        testSequences = SyntheticDataset.generateSequences(
+        testSequences = SyntheticDataset.generate_synethetic_sequences(
             maxSamples, args.MAX_STRING_LENGTH,
             args.MAX_STRING_LENGTH, args.ALPHABET,ratioOfRandom=args.RATIO_OF_RANDOM_SAMPLES,
             similarityMin=args.SIMILARITY_MIN, similarityMax=args.SIMILARITY_MAX
             )
     elseif args.USE_SEQUENCE_DATA == true
-        testSequences = SequenceDataset.getReadSequenceData(maxSamples, args.MAX_STRING_LENGTH, fastqFilePath=INFERENCE_FASTQ)
+        testSequences = SequenceDataset.read_sequence_data(maxSamples, args.MAX_STRING_LENGTH, fastqFilePath=INFERENCE_FASTQ)
     else
         throw("Must provide type of dataset")
     end
@@ -174,7 +174,7 @@ function createKNNIndex(args)
 
         numSequences = length(batchSequence)
 
-        oneHotBatch = Dataset.oneHotBatchSequences(batchSequence, args.MAX_STRING_LENGTH, args.BSIZE, args.ALPHABET_SYMBOLS)
+        oneHotBatch = Dataset.one_hot_encode_sequence_batch(batchSequence, args.MAX_STRING_LENGTH, args.BSIZE, args.ALPHABET_SYMBOLS)
         X = permutedims(oneHotBatch, (3, 2, 1))
         X = reshape(oneHotBatch, :, 1, args.BSIZE)
         X = X |> DEVICE
@@ -241,7 +241,7 @@ function createEmbeddingIndex(args, batchSequenceIterator;quantize=true)
     LOG_EVERY = 10000
     @info("Accumulating training vectors...")
     for batchSequence in batchSequenceIterator
-        oneHotBatch = Dataset.oneHotBatchSequences(batchSequence, args.MAX_STRING_LENGTH, args.BSIZE, args.ALPHABET_SYMBOLS;doPad=true)
+        oneHotBatch = Dataset.one_hot_encode_sequence_batch(batchSequence, args.MAX_STRING_LENGTH, args.BSIZE, args.ALPHABET_SYMBOLS;doPad=true)
         X = permutedims(oneHotBatch, (3, 2, 1))
         X = reshape(X, :, 1, args.BSIZE)
 
@@ -352,11 +352,11 @@ function getTrueNNOverlap(args; k=1000)
     # Get the pairwise sequence distance array
     timeFindingTrueNNs = @elapsed begin
         trueNNMap = Dict()
-        _, truePairwiseDistances = Utils.pairwiseHammingDistance(inferenceSequences)
+        _, truepairwise_distances = Utils.pairwise_hamming_distance(inferenceSequences)
 
-        for i in 1:size(truePairwiseDistances)[1]
-            nns = sortperm(truePairwiseDistances[i, 1:end])[1:k]
-            distances = truePairwiseDistances[i, 1:end][nns]
+        for i in 1:size(truepairwise_distances)[1]
+            nns = sortperm(truepairwise_distances[i, 1:end])[1:k]
+            distances = truepairwise_distances[i, 1:end][nns]
 
             # Use FAISS 0-based indexing
             nns = nns .- 1
@@ -370,7 +370,7 @@ end
 
 args = JLD2.load(joinpath(EXPERIMENT_DIR, "args.jld2"))["args"]
 
-models = JLD2.load(Utils.getBestModelPath(args.MODEL_SAVE_DIR)) |> DEVICE
+models = JLD2.load(Utils.get_best_model_path(args.MODEL_SAVE_DIR)) |> DEVICE
 embeddingModel = models["embedding_model"] |> DEVICE
 calibrationModel = models["distance_calibration_model"]
 trainmode!(embeddingModel, false)

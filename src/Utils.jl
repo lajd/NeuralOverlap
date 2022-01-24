@@ -12,7 +12,7 @@ module Utils
     using DataStructures
     using Lathe
 
-    using ..DatasetUtils: oneHotSequences, oneHotEncodeSequence, oneHotBatchSequences, formatOneHotSequenceArray, plotKNNDistances, plotTripletBatchDistances, plotSequenceDistances
+    using ..DatasetUtils: one_hot_encode_sequences, _one_hot_encode_sequence, one_hot_encode_sequence_batch, format_one_hot_sequence_array, plot_knn_distances, plot_triplet_batch_distances, plot_sequence_distances
 
 
     try
@@ -26,19 +26,13 @@ module Utils
     end
 
 
-    function l2Norm(A; dims)
-        A = sum(x -> x^2, A; dims=dims)
-        A = sqrt.(A)
-        return A
-    end
-
-    function pairwiseHammingDistance(seqArr::Array{String})
+    function pairwise_hamming_distance(seqArr::Array{String})
         sequenceIDMap = Dict([(refSeq, i) for (i, refSeq) in enumerate(seqArr)])
         distanceMatrix=pairwise(hamming, seqArr)
         return sequenceIDMap, distanceMatrix
     end
 
-    function pairwiseDistance(X, method="l2")
+    function pairwise_distance(X, method="l2")
         if method == "l2"
             return pairwise(euclidean, X)
         elseif method == "cosine"
@@ -48,20 +42,20 @@ module Utils
         end
     end
 
-    function getTrainingScore(modelName::String; modelExtension=".jld2")::Float32
+    function get_training_score(modelName::String; modelExtension=".jld2")::Float32
         suffix = split(modelName, "_")[end]
         trainingLoss = split(suffix, modelExtension)[1]
         return parse(Float32, trainingLoss)
     end
 
 
-    function removeOldModels(modelSaveDir::String, keepN::Int64=3)
+    function remove_old_models(modelSaveDir::String, keepN::Int64=3)
         # Remove any old models
         trainingScoreToModelNameDict = Dict()
         allModels = readdir(modelSaveDir)
 
         for modelName in allModels
-            trainingLoss = getTrainingScore(modelName)
+            trainingLoss = get_training_score(modelName)
             trainingScoreToModelNameDict[trainingLoss] = modelName
         end
 
@@ -75,12 +69,12 @@ module Utils
         end
     end
 
-    function getBestModelPath(modelSaveDir::String)::String
+    function get_best_model_path(modelSaveDir::String)::String
         trainingScoreToModelNameDict = Dict()
         allModels = readdir(modelSaveDir)
 
         for modelName in allModels
-            trainingLoss = getTrainingScore(modelName)
+            trainingLoss = get_training_score(modelName)
             trainingScoreToModelNameDict[trainingLoss] = modelName
         end
 
@@ -89,7 +83,7 @@ module Utils
         end
     end
 
-    function validateGradients(gs)
+    function validate_gradients(gs)
         maxGS = -1
         minGS = 1e6
 
@@ -122,28 +116,28 @@ module Utils
        return maximum(maxGSArr), minimum(minGSArr), mean(avgGSArr)
     end
 
-    function norm2(A; dims)
+    function l2_norm(A; dims)
         B = sum(x -> x^2, A; dims=dims)
         C = sqrt.(B)
         return C
     end
 
-    function rowCosineSimilarity(a, b)
-        denom = vec(Utils.norm2(a, dims=1)) .* vec(Utils.norm2(b, dims=1))
+    function row_cosine_similarity(a, b)
+        denom = vec(Utils.l2_norm(a, dims=1)) .* vec(Utils.l2_norm(b, dims=1))
         return 1 .- diag((transpose(a)* b)) ./ denom
     end
 
-    function EmbeddingDistance(x1, x2, method; dims=1)
+    function embedding_distance(x1, x2, method; dims=1)
         if method == "l2"
-            return vec(Utils.l2Norm(x1 - x2, dims=dims))
+            return vec(Utils.l2_norm(x1 - x2, dims=dims))
         elseif method == "cosine"
-            return Utils.rowCosineSimilarity(x1, x2)
+            return Utils.row_cosine_similarity(x1, x2)
         else
             throw("Method not recognized")
         end
     end
 
-    function recallTopTAtK(predKNN, actualKNN; T=100, K=100)
+    function top_k_recall(predKNN, actualKNN; T=100, K=100)
         """
         T is the number of relevant documents
         K is the numer of "true" documents
@@ -209,12 +203,12 @@ module Utils
                 end
 
                 @assert length(predicted_knns) == length(actual_knns) (length(predicted_knns), length(actual_knns))
-                recallDict["top1Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=1, K=k)
-                recallDict["top5Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=5, K=k)
-                recallDict["top10Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=10, K=k)
-                recallDict["top25Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=25, K=k)
-                recallDict["top50Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=50, K=k)
-                recallDict["top100Recall"][k] += Utils.recallTopTAtK(predicted_knns, actual_knns, T=100, K=k)
+                recallDict["top1Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=1, K=k)
+                recallDict["top5Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=5, K=k)
+                recallDict["top10Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=10, K=k)
+                recallDict["top25Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=25, K=k)
+                recallDict["top50Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=50, K=k)
+                recallDict["top100Recall"][k] += Utils.top_k_recall(predicted_knns, actual_knns, T=100, K=k)
 
             end
         end
@@ -263,7 +257,7 @@ module Utils
         Earray = []
 
         function _encodeBatch(xarr, earr)
-            formattedOneHotSeqs = formatOneHotSequenceArray(xarr)
+            formattedOneHotSeqs = format_one_hot_sequence_array(xarr)
             formattedOneHotSeqs = formattedOneHotSeqs |> DEVICE
             emb = embeddingModel(formattedOneHotSeqs) |> Flux.cpu
             push!(earr, embeddingModel(formattedOneHotSeqs))
@@ -436,7 +430,7 @@ module Utils
 
         timeGetPredictedDistanceMatrix = @elapsed begin
             # Obtain inferred/predicted distance matrix
-            predictedDistanceMatrix=pairwiseDistance(Etensor, method)
+            predictedDistanceMatrix=pairwise_distance(Etensor, method)
         end
 
 

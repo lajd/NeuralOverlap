@@ -44,16 +44,16 @@ x5 shape torch.Size([64, 3120])
 
 @testset "Constants tests" begin
     @testset "Test flat size" begin
-        computedFlatSize = Constants._getFlatSize(30, 8, 26, 1)
+        computedFlatSize = Constants.__get_flat_size(30, 8, 26, 1)
         @test computedFlatSize == 3120
     end
 end
 
 @testset "Dataset tests" begin
-    @testset "Test oneHotSequences" begin
+    @testset "Test one_hot_encode_sequences" begin
         s1 = "ATCG"
-        oneHotSequences = Dataset.oneHotSequences([s1], 4, Constants.ALPHABET_SYMBOLS)
-        ohs = oneHotSequences[1]
+        one_hot_encode_sequences = Dataset.one_hot_encode_sequences([s1], 4, Constants.ALPHABET_SYMBOLS)
+        ohs = one_hot_encode_sequences[1]
 
         ohs = ohs[1, :, :]
         for i in 1:4
@@ -61,14 +61,14 @@ end
         end
     end
 
-    @testset "Test generateSequences" begin
-        sequences = Dataset.generateSequences(10, 2, 10, Constants.ALPHABET)
+    @testset "Test generate_synethetic_sequences" begin
+        sequences = Dataset.generate_synethetic_sequences(10, 2, 10, Constants.ALPHABET)
         @assert length(sequences) == 10
     end
 
 
     @testset "Test TrainingDataset" begin
-        trainingDataset = Dataset.DatasetHelper(10, 10, 10, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance, args.DISTANCE_MATRIX_NORM_METHOD)
+        trainingDataset = Dataset.DatasetHelper(10, 10, 10, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwise_hamming_distance, args.DISTANCE_MATRIX_NORM_METHOD)
 
         distMat = trainingDataset.getDistanceMatrix()
         seqIdMap = trainingDataset.getSeqIdMap()
@@ -91,12 +91,12 @@ end
 @testset "Model tests" begin
 
     @testset "load model no error" begin
-        model = Model.getModel(30, 4, 64, 3120, 128, numConvLayers=1, numFCLayers=1)
+        model = Model.get_embedding_model(30, 4, 64, 3120, 128, numConvLayers=1, numFCLayers=1)
     end
 
     @testset "Test single layer model" begin
-        flatSize = Constants._getFlatSize(30, 8, 26, 1)
-        model = Model.getModel(30, 4, 64, flatSize, 128, numConvLayers=1, numFCLayers=1)
+        flatSize = Constants.__get_flat_size(30, 8, 26, 1)
+        model = Model.get_embedding_model(30, 4, 64, flatSize, 128, numConvLayers=1, numFCLayers=1)
         layers = model.layers
 
         x = convert.(Float32, zeros(64, 26, 30))
@@ -140,8 +140,8 @@ end
 
 
     @testset "Test multi layer model" begin
-        flatSize = Constants._getFlatSize(30, 8, 26, 3)
-        model = Model.getModel(30, 4, 64, flatSize, 128, numConvLayers=3, numFCLayers=2)
+        flatSize = Constants.__get_flat_size(30, 8, 26, 3)
+        model = Model.get_embedding_model(30, 4, 64, flatSize, 128, numConvLayers=3, numFCLayers=2)
         layers = model.layers
 
         x = convert.(Float32, zeros(64, 26, 30))
@@ -223,7 +223,7 @@ end
     @testset "Test Evaluation" begin
         maxStringLength = 10
         numSeqs = 10
-        dataset = Dataset.DatasetHelper(numSeqs, maxStringLength, maxStringLength, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwiseHammingDistance, args.DISTANCE_MATRIX_NORM_METHOD)
+        dataset = Dataset.DatasetHelper(numSeqs, maxStringLength, maxStringLength, Constants.ALPHABET, Constants.ALPHABET_SYMBOLS, Utils.pairwise_hamming_distance, args.DISTANCE_MATRIX_NORM_METHOD)
         batchDict = dataset.getTripletBatch(numSeqs)
         batchTuple = dataset.batchToTuple(batchDict)
 
@@ -253,7 +253,7 @@ end
             expectedRecall = [1/20, 1/20, 2/20, 3/20, 4/20, 5/20, 6/20, 6/20, 7/20, 7/20]
             actualKNN = Array(1:10)
             for k in 1:10
-                @assert isapprox(Utils.recallTopTAtKpredKNN(actualKNN;T=t, K=k), expectedRecall[k])
+                @assert isapprox(Utils.top_k_recallpredKNN(actualKNN;T=t, K=k), expectedRecall[k])
             end
         end
     end

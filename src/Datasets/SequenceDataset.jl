@@ -18,7 +18,7 @@ module SequenceDataset
 
     using Printf
 
-    function getReadSequenceData(maxSequences, maxSeqLen; fastqFilePath="/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix_train.fastq")
+    function read_sequence_data(maxSequences, maxSeqLen; fastqFilePath="/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix_train.fastq")
         reader = open(FASTQ.Reader, fastqFilePath)
         sequenceSet = Set{String}()
 

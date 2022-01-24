@@ -17,7 +17,7 @@ module SyntheticDataset
     using Distributions
 
 
-    function generateSequences(numSequences::Int64, minSequenceLength::Int64,
+    function generate_synethetic_sequences(numSequences::Int64, minSequenceLength::Int64,
          maxSequenceLength::Int64, alphabet::Vector{Char};
          ratioOfRandom=0.05, similarityMin=0.6, similarityMax=0.95)::Array{String}
 

@@ -15,11 +15,11 @@ module Dataset
     using Distributions
     using Printf
 
-    using ..DatasetUtils: oneHotSequences, oneHotEncodeSequence, oneHotBatchSequences, formatOneHotSequenceArray, plotKNNDistances, plotTripletBatchDistances
+    using ..DatasetUtils: one_hot_encode_sequences, _one_hot_encode_sequence, one_hot_encode_sequence_batch, format_one_hot_sequence_array, plot_knn_distances, plot_triplet_batch_distances
 
     function DatasetHelper(sequences::Array{String}, maxSequenceLength::Int64,
          alphabet::Vector{Char}, alphabetSymbols::Vector{Symbol},
-         pairwiseDistanceFun::Function, weightFunctionMethod::String,
+         pairwise_distanceFun::Function, weightFunctionMethod::String,
          distanceMatNormMethod::String="max", numNN::Int64=100, sampledTripletNNs::Int64=100)
 
         sampledTripletNNs = min(sampledTripletNNs, numNN - 1)
@@ -27,14 +27,14 @@ module Dataset
         @info("Creating dataset from sequences...\n")
         @printf("Using dataset with %s sequences\n", numSequences)
 
-        timeGetOneHotSequences = @elapsed begin
-            oneHotEncodedSequences = oneHotSequences(sequences, maxSequenceLength, alphabetSymbols)
+        timeGetone_hot_encode_sequences = @elapsed begin
+            oneHotEncodedSequences = one_hot_encode_sequences(sequences, maxSequenceLength, alphabetSymbols)
         end
 
-        @printf("Time to format one-hot sequences: %ss\n", timeGetOneHotSequences)
+        @printf("Time to format one-hot sequences: %ss\n", timeGetone_hot_encode_sequences)
 
-        timeGetPairwiseDistances = @elapsed begin
-            seqIdMap, distanceMatrix = pairwiseDistanceFun(sequences)
+        timeGetpairwise_distances = @elapsed begin
+            seqIdMap, distanceMatrix = pairwise_distanceFun(sequences)
             meanDistance = mean(distanceMatrix)
             # Normalize distance matrix by maximum length
             if distanceMatNormMethod == "mean"
@@ -47,7 +47,7 @@ module Dataset
                 throw("Invalid normalization scheme")
             end
         end
-        @printf("Time to calculate pairwise ground-truth distances: %ss\n", timeGetPairwiseDistances)
+        @printf("Time to calculate pairwise ground-truth distances: %ss\n", timeGetpairwise_distances)
 
         timeCreateIDSeqDataMap = @elapsed begin
             idSeqDataMap = Dict()
@@ -197,7 +197,7 @@ module Dataset
 
             # Reshape as (-1, 1, N)
             for s in ["Xacr", "Xpos", "Xneg"]
-                batch[s] = formatOneHotSequenceArray(batch[s])
+                batch[s] = format_one_hot_sequence_array(batch[s])
             end
 
             return batch
