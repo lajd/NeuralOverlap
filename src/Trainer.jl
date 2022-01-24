@@ -1,6 +1,7 @@
 include("./src/ExperimentHelper.jl")
 include("./src/Utils.jl")
 include("./src/Model.jl")
+include("./src/Datasets/DatasetUtils.jl")
 
 include("./src/Datasets/Dataset.jl")
 include("./src/Datasets/SyntheticDataset.jl")
@@ -35,13 +36,15 @@ using Printf
 using JLD2
 using FileIO
 
-using .Utils: pairwiseHammingDistance
-using .ExperimentHelper: ExperimentParams, ExperimentMeter, saveArgs!, createExperimentDirs!
-using .Model
+using ..Utils: pairwiseHammingDistance
+using ..ExperimentHelper: ExperimentParams, ExperimentMeter, saveArgs!, createExperimentDirs!
+using ..Model
 
-using .Dataset: DatasetHelper, plotSequenceDistances, plotKNNDistances, plotTripletBatchDistances
-using .SyntheticDataset
-using .SequenceDataset
+using ..Dataset: DatasetHelper
+using ..DatasetUtils: oneHotSequences, oneHotEncodeSequence, oneHotBatchSequences, formatOneHotSequenceArray, plotKNNDistances, plotTripletBatchDistances, plotSequenceDistances
+
+using ..SyntheticDataset
+using ..SequenceDataset
 
 
 try
@@ -54,6 +57,7 @@ catch e
     global DEVICE = Flux.cpu
     global ArrayType = Union{Vector{Float32}, Matrix{Float32}}
 end
+
 
 function getPipeCleanerArgs()
     return ExperimentParams(
@@ -90,9 +94,11 @@ end
 
 
 
-function TrainingExperiment(experimentParams::ExperimentParams)
+function TrainingExperiment(experimentParams::ExperimentParams;usePipeCleaner::Bool=false)
+    """ Helpers for training an experiment """
 
     args = experimentParams
+    usePipeCleaner = usePipeCleaner
 
     function getDatasetSplit()
         totalSamples = args.NUM_TRAIN_EXAMPLES + args.NUM_EVAL_EXAMPLES + args.NUM_TEST_EXAMPLES
@@ -339,9 +345,7 @@ function TrainingExperiment(experimentParams::ExperimentParams)
     end
 
     function execute()
-        USE_PIPE_CLEANER = true
-
-        if USE_PIPE_CLEANER == true
+        if usePipeCleaner == true
             args = getPipeCleanerArgs()
         end
 
@@ -402,16 +406,16 @@ end
 
 
 experimentArgs = ExperimentParams(
-    NUM_EPOCHS=20,
+    NUM_EPOCHS=100,
     NUM_BATCHES=512,  #
     MAX_STRING_LENGTH=64,
     BSIZE=2048,
-    N_INTERMEDIATE_CONV_LAYERS=2,
+    N_INTERMEDIATE_CONV_LAYERS=3,
     CONV_ACTIVATION=relu,
     USE_INPUT_BATCHNORM=false,
     USE_INTERMEDIATE_BATCHNORM=true,
     USE_READOUT_DROPOUT=false,
-    OUT_CHANNELS = 2,
+    OUT_CHANNELS = 4,
     N_READOUT_LAYERS=1,
     CONV_ACTIVATION_LAYER_MOD=1,
     LR=0.01,
@@ -419,10 +423,10 @@ experimentArgs = ExperimentParams(
     L0emb=0.1,
     LOSS_STEPS_DICT = Dict(),
     K_START = 1,
-    K_END = 15001,
-    K_STEP = 100,
-    NUM_NNS_EXTRACTED=15000,
-    NUM_NNS_SAMPLED_DURING_TRAINING=200,
+    K_END = 501,
+    K_STEP = 10,
+    NUM_NNS_EXTRACTED=500,
+    NUM_NNS_SAMPLED_DURING_TRAINING=100,
     POOLING_METHOD="mean",
     DISTANCE_METHOD="l2",
     DISTANCE_MATRIX_NORM_METHOD="mean",
@@ -430,13 +434,13 @@ experimentArgs = ExperimentParams(
     NUM_TRAIN_EXAMPLES=20000,
     NUM_EVAL_EXAMPLES=20000,
     NUM_TEST_EXAMPLES=200,
-    # KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
-    KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
+    KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="uniform",
+    # KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="ranked",
     # KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD="inverseDistance",
     USE_SYNTHETIC_DATA=false,
     USE_SEQUENCE_DATA=true,
 )
 
-experiment = TrainingExperiment(experimentArgs)
+experiment = TrainingExperiment(experimentArgs;usePipeCleaner=true)
 
 experiment.execute()

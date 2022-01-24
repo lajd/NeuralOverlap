@@ -1,3 +1,5 @@
+# include("./DatasetUtils.jl")
+
 
 module Dataset
     using Random
@@ -15,15 +17,18 @@ module Dataset
     using Distributions
     using Printf
 
-    using ..Utils
+    # using ..DatasetUtils: oneHotSequences, oneHotEncodeSequence, oneHotBatchSequences, formatOneHotSequenceArray, plotKNNDistances, plotTripletBatchDistances
+    # using ..DatasetUtils
+    using ..DatasetUtils: oneHotSequences, oneHotEncodeSequence, oneHotBatchSequences, formatOneHotSequenceArray, plotKNNDistances, plotTripletBatchDistances
 
-    function oneHotSequences(seqArr:: Array{String}, maxSeqLen::Int64, alphabetSymbols::Vector{Symbol})::Array
-        oneHotSequences = []
-        for seq in seqArr
-            push!(oneHotSequences, Flux.unsqueeze(oneHotEncodeSequence(seq, maxSeqLen, alphabetSymbols), 1))
-        end
-        return oneHotSequences
-    end
+
+#     function oneHotSequences(seqArr:: Array{String}, maxSeqLen::Int64, alphabetSymbols::Vector{Symbol})::Array
+#         oneHotSequences = []
+#         for seq in seqArr
+#             push!(oneHotSequences, Flux.unsqueeze(oneHotEncodeSequence(seq, maxSeqLen, alphabetSymbols), 1))
+#         end
+#         return oneHotSequences
+#     end
 
 
     function DatasetHelper(sequences::Array{String}, maxSequenceLength::Int64,
@@ -31,14 +36,13 @@ module Dataset
          pairwiseDistanceFun::Function, weightFunctionMethod::String,
          distanceMatNormMethod::String="max", numNN::Int64=100, sampledTripletNNs::Int64=100)
 
-
         sampledTripletNNs = min(sampledTripletNNs, numNN - 1)
         numSequences = length(sequences)
         @info("Creating dataset from sequences...\n")
         @printf("Using dataset with %s sequences\n", numSequences)
 
         timeGetOneHotSequences = @elapsed begin
-            oneHotEncodedSequences = Dataset.oneHotSequences(sequences, maxSequenceLength, alphabetSymbols)
+            oneHotEncodedSequences = oneHotSequences(sequences, maxSequenceLength, alphabetSymbols)
         end
 
         @printf("Time to format one-hot sequences: %ss\n", timeGetOneHotSequences)
@@ -176,13 +180,13 @@ module Dataset
             )
         end
 
-        function formatOneHotSequenceArray(oneHotSequence)
-            n = length(oneHotSequence)
-            oneHotSequence = convert.(Float32, vcat(oneHotSequence...))
-            oneHotSequence = permutedims(oneHotSequence, (3, 2, 1))
-            oneHotSequence = reshape(oneHotSequence, :, 1, n)
-            return oneHotSequence
-        end
+#         function formatOneHotSequenceArray(oneHotSequence)
+#             n = length(oneHotSequence)
+#             oneHotSequence = convert.(Float32, vcat(oneHotSequence...))
+#             oneHotSequence = permutedims(oneHotSequence, (3, 2, 1))
+#             oneHotSequence = reshape(oneHotSequence, :, 1, n)
+#             return oneHotSequence
+#         end
 
         function getTripletBatch(n::Int64)
 
@@ -293,58 +297,59 @@ module Dataset
 
         ()->(numSeqs;getDistanceMatrix;getSeqIdMap;getIdSeqDataMap;getDistance;getTripletDict;
         getTripletBatch;numCollisions;shuffleTripletBatch!;extractBatches;batchToTuple;
-        formatOneHotSequenceArray;getNNs;batchTuplesProducer;getMeanDistance)
+        getNNs;batchTuplesProducer;getMeanDistance)
     end
 
+#
+#
+#     function oneHotEncodeSequence(s::String, maxSeqLen::Int64, alphabetSymbols::Vector{Symbol})::Matrix
+#             symbols = [Symbol(char) for char in s]
+#             # TODO: Add padding
+#             @assert length(symbols) == maxSeqLen
+#             oneHotBatch = onehotbatch(symbols, alphabetSymbols)
+#             oneHotBatch = float.(oneHotBatch)
+#             return oneHotBatch
+#     end
+#
+#     function oneHotBatchSequences(seqArr:: Array{String}, maxSeqLen::Int64, bSize::Int64, alphabetSymbols::Vector{Symbol}; doPad=true)
+#         oneHotSeqs = oneHotEncodingUtils.oneHotSequences(seqArr, maxSeqLen, alphabetSymbols)
+#         if doPad
+#             vpad = zeros(bSize - length(seqArr), length(alphabetSymbols), maxSeqLen)
+#             oneHotSeqs = vcat(oneHotSeqs..., vpad)
+#         else
+#             oneHotSeqs = vcat(oneHotSeqs...)
+#         end
+#         oneHotSeqs = convert(Array{Float32}, oneHotSeqs)
+#         return oneHotSeqs
+#     end
 
-    function oneHotEncodeSequence(s::String, maxSeqLen::Int64, alphabetSymbols::Vector{Symbol})::Matrix
-            symbols = [Symbol(char) for char in s]
-            # TODO: Add padding
-            @assert length(symbols) == maxSeqLen
-            oneHotBatch = onehotbatch(symbols, alphabetSymbols)
-            oneHotBatch = float.(oneHotBatch)
-            return oneHotBatch
-    end
-
-    function oneHotBatchSequences(seqArr:: Array{String}, maxSeqLen::Int64, bSize::Int64, alphabetSymbols::Vector{Symbol}; doPad=true)
-        oneHotSeqs = Dataset.oneHotSequences(seqArr, maxSeqLen, alphabetSymbols)
-        if doPad
-            vpad = zeros(bSize - length(seqArr), length(alphabetSymbols), maxSeqLen)
-            oneHotSeqs = vcat(oneHotSeqs..., vpad)
-        else
-            oneHotSeqs = vcat(oneHotSeqs...)
-        end
-        oneHotSeqs = convert(Array{Float32}, oneHotSeqs)
-        return oneHotSeqs
-    end
-
-    function plotSequenceDistances(distanceMat; maxSamples = 2000, plotsSavePath=".", identifier="")
-        n = size(distanceMat)[1]
-        maxSamples = min(maxSamples, n)
-        randSamplesX = a = sample(1:n, maxSamples, replace = false)
-        randSamplesY = a = sample(1:n, maxSamples, replace = false)
-        dists = [distanceMat[i, j] for (i, j) in  zip(randSamplesX, randSamplesY)]
-        fig = plot(scatter(1:maxSamples, dists), title="True distances")
-        savefig(fig, joinpath(plotsSavePath, string(identifier, "_", "true_sequence_distances.png")))
-    end
-
-    function plotKNNDistances(distanceMat, idSeqDataMap; plotsSavePath=".", num_samples=10, identifier="", sampledTopKNNs=100)
-        for i in 1:num_samples
-            refID, refData = rand(idSeqDataMap)
-            nns = refData["topKNN"][1:sampledTopKNNs]
-            distances = [distanceMat[refID, j] for j in nns]
-            fig = plot(scatter(1:length(distances), distances), title="Random KNN distances")
-            saveDir = joinpath(plotsSavePath, "random_knn_distances")
-            mkpath(saveDir)
-            savefig(fig, joinpath(saveDir, string(identifier, "_", string(i), ".png")))
-        end
-    end
-
-    function plotTripletBatchDistances(tripletBatchDict, plotsSavePath=".")
-        Dpos = tripletBatchDict["Dpos"]
-        Dneg = tripletBatchDict["Dneg"]
-        Dposneg = tripletBatchDict["DPosNeg"]
-        fig = plot(scatter(1:length(Dpos), [Dpos, Dneg, Dposneg], label=["Dpos" "Dneg" "Dposneg"], title="Triplet batch distances"))
-        savefig(fig, joinpath(plotsSavePath, string("triplet_batch_distances", ".png")))
-    end
+#     function plotSequenceDistances(distanceMat; maxSamples = 2000, plotsSavePath=".", identifier="")
+#         n = size(distanceMat)[1]
+#         maxSamples = min(maxSamples, n)
+#         randSamplesX = a = sample(1:n, maxSamples, replace = false)
+#         randSamplesY = a = sample(1:n, maxSamples, replace = false)
+#         dists = [distanceMat[i, j] for (i, j) in  zip(randSamplesX, randSamplesY)]
+#         fig = plot(scatter(1:maxSamples, dists), title="True distances")
+#         savefig(fig, joinpath(plotsSavePath, string(identifier, "_", "true_sequence_distances.png")))
+#     end
+#
+#     function plotKNNDistances(distanceMat, idSeqDataMap; plotsSavePath=".", num_samples=10, identifier="", sampledTopKNNs=100)
+#         for i in 1:num_samples
+#             refID, refData = rand(idSeqDataMap)
+#             nns = refData["topKNN"][1:sampledTopKNNs]
+#             distances = [distanceMat[refID, j] for j in nns]
+#             fig = plot(scatter(1:length(distances), distances), title="Random KNN distances")
+#             saveDir = joinpath(plotsSavePath, "random_knn_distances")
+#             mkpath(saveDir)
+#             savefig(fig, joinpath(saveDir, string(identifier, "_", string(i), ".png")))
+#         end
+#     end
+#
+#     function plotTripletBatchDistances(tripletBatchDict, plotsSavePath=".")
+#         Dpos = tripletBatchDict["Dpos"]
+#         Dneg = tripletBatchDict["Dneg"]
+#         Dposneg = tripletBatchDict["DPosNeg"]
+#         fig = plot(scatter(1:length(Dpos), [Dpos, Dneg, Dposneg], label=["Dpos" "Dneg" "Dposneg"], title="Triplet batch distances"))
+#         savefig(fig, joinpath(plotsSavePath, string("triplet_batch_distances", ".png")))
+#     end
 end

@@ -1,7 +1,7 @@
 """
 # module SyntheticDataset
 
-- Julia version: 
+- Julia version:
 - Author: jon
 - Date: 2021-12-12
 

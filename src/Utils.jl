@@ -1,3 +1,4 @@
+include("./Datasets/DatasetUtils.jl")
 
 
 module Utils
@@ -10,6 +11,9 @@ module Utils
     using Plots
     using DataStructures
     using Lathe
+
+    using ..DatasetUtils: oneHotSequences, oneHotEncodeSequence, oneHotBatchSequences, formatOneHotSequenceArray, plotKNNDistances, plotTripletBatchDistances, plotSequenceDistances
+
 
     try
         using CUDA
@@ -259,7 +263,7 @@ module Utils
         Earray = []
 
         function _encodeBatch(xarr, earr)
-            formattedOneHotSeqs = datasetHelper.formatOneHotSequenceArray(xarr)
+            formattedOneHotSeqs = formatOneHotSequenceArray(xarr)
             formattedOneHotSeqs = formattedOneHotSeqs |> DEVICE
             emb = embeddingModel(formattedOneHotSeqs) |> Flux.cpu
             push!(earr, embeddingModel(formattedOneHotSeqs))
