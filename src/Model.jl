@@ -54,13 +54,9 @@ module Model
             push!(layers, Conv((k,), 1 => c, identity; bias = false, stride=1, pad=1))
             push!(layers, BatchNorm(c, identity))
             push!(layers, pool)
-            # TODO: Input conv activation?
-#             push!(layers, activation)
         else
             push!(layers, Conv((k,), 1 => c, identity; bias = false, stride=1, pad=1))
             push!(layers, pool)
-            # TODO: Input conv activation?
-#             push!(layers, activation)
         end
         return layers
     end
@@ -205,16 +201,6 @@ module Model
         return x
     end
 
-
-    # function formatOneHotSequences(XSeq)
-    #     bsize = length(XSeq)
-    #     output = []
-    #     for x in XSeq
-    #         x = _reshapeOneHotSeq(x, bsize)
-    #         push!(output, x)
-    #     end
-    #     return output
-    # end
 
     function tripletLoss(args, Xacr::ArrayType, Xpos::ArrayType,
          Xneg::ArrayType, y12::ArrayType, y13::ArrayType,
