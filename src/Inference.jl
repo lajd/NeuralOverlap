@@ -3,7 +3,7 @@ include("./src/Utils.jl")
 include("./src/Datasets/Dataset.jl")
 include("./src/Datasets/SequenceDataset.jl")
 include("./src/Datasets/SyntheticDataset.jl")
-include("./src/Model.jl")
+include("./src/Models/EditCNN.jl")
 
 
 # include("./args.jl")
@@ -30,7 +30,7 @@ using PythonCall
 
 using ..Dataset
 using ..ExperimentHelper: ExperimentParams
-using ..Model
+using ..EditCNN
 using ..Utils
 
 faiss = pyimport("faiss")
@@ -46,10 +46,12 @@ end
 
 ExperimentParamsType = Union{ExperimentParams, ExperimentHelper.ExperimentParams}
 
+ROOT_DIR = "/home/jon/JuliaProjects/NeuralOverlap"
 # EXPERIMENT_DIR="/home/jon/JuliaProjects/NeuralOverlap/data/experiments/2022-01-20T08:03:13.264_newModelMeanNorm"
-EXPERIMENT_DIR="/home/jon/JuliaProjects/NeuralOverlap/data/experiments/2022-01-23T21:26:14.086"
+EXPERIMENT_DIR="/home/jon/JuliaProjects/NeuralOverlap/data/experiments/2022-01-25T08:22:12.709"
 INFERENCE_FASTQ = "/home/jon/JuliaProjects/NeuralOverlap/data_fetch/covid_test.fa_R1.fastq"
 # INFERENCE_FASTQ = "/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix174_train.fa_R1.fastq"
+MODEL_LOAD_PATH="/home/jon/JuliaProjects/NeuralOverlap/data/experiments/2022-01-25T08:22:12.709/saved_models/epoch_5_mean_abs_error_2.6985315187913312.jld2"
 
 
 function get_inference_sequences(max_samples::Int64=Int(1e4))::Array
@@ -70,7 +72,7 @@ function get_inference_sequences(max_samples::Int64=Int(1e4))::Array
 end
 
 
-function batch_sequence_producer(argsExperimentParamsType, chnl, sequences::Array{String})
+function batch_sequence_producer(args::ExperimentParamsType, chnl, sequences::Array{String})
     i = 1
     j = args.BSIZE
     while j < length(sequences)
@@ -85,7 +87,7 @@ end
 
 
 
-function addEmbeddingsToKMeans!(argsExperimentParamsType, embeddings::Array, clusterer, index; do_train_index::Bool=false)
+function addEmbeddingsToKMeans!(args::ExperimentParamsType, embeddings::Array, clusterer, index; do_train_index::Bool=false)
     # Size (128, 512*N)
     training_vector_matrix = cat(embeddings..., dims=2) |> Flux.cpu
     convert(Array, training_vector_matrix)
@@ -113,20 +115,26 @@ function addEmbeddingsToKMeans!(argsExperimentParamsType, embeddings::Array, clu
 end
 
 
-function get_faiss_index(argsExperimentParamsType; quantize::Bool=false)
-    nlist = 100
-    m = 8
+function get_faiss_index(args::ExperimentParamsType; quantize::Bool=false, d::Int64=128, nlist::Int64=100, m::Int64=8,bits::Int64=8)
     d = args.EMBEDDING_DIM
+
     if quantize == true
-        quantizer = faiss.IndexFlatL2(d)  # this remains the same
-        index = faiss.IndexIVFPQ(quantizer, d, nlist, m, 8)
+        quantizer = faiss.IndexFlatL2(d)  # build a flat (CPU) index
+        index = faiss.IndexIVFPQ(quantizer, d, nlist, m, bits)
     else
-        index = faiss.IndexFlatL2(d)
+        index = faiss.IndexFlatL2(d)  # build a flat (CPU) index
     end
+
+    if DEVICE == Flux.gpu
+        resource = faiss.StandardGpuResources()  # use a single GPU
+        @info("Creating GPU FAISS index")
+        index = faiss.index_cpu_to_gpu(resource, 0, index)
+    end
+
     return index
 end
 
-function createKNNIndex(argsExperimentParamsType)
+function createKNNIndex(args::ExperimentParamsType, model; quantize=false)
 
     # TODO: Get this from args
     faiss_train_size = 5000
@@ -135,12 +143,7 @@ function createKNNIndex(argsExperimentParamsType)
 
     toleranceScaleFactor = 1.3
 
-#     if DEVICE == Flux.gpu
-#         faiss_index = faiss.GpuIndexFlatL2(128)
-#     else
-#         faiss_index = faiss.IndexFlatL2(128)
-#     end
-    faiss_index = faiss.IndexFlatL2(128)
+    faiss_index = get_faiss_index(args, quantize=quantize)
 
     estimated_num_true_reads = Int(ceil(estimated_genome_length/args.MAX_STRING_LENGTH))
     nClusters = 20 #estimated_num_true_reads * toleranceScaleFactor
@@ -177,7 +180,7 @@ function createKNNIndex(argsExperimentParamsType)
         X = reshape(one_hot_batch, :, 1, args.BSIZE)
         X = X |> DEVICE
 
-        sequence_embeddings = embedding_model(X)
+        sequence_embeddings = model(X)
 
         push!(training_vectors, sequence_embeddings)
 
@@ -209,7 +212,7 @@ function createKNNIndex(argsExperimentParamsType)
 end
 
 
-function addEmbeddoingsToIndex!(argsExperimentParamsType, embeddings_array::Array, index; do_train_index::Bool=false)
+function addEmbeddoingsToIndex!(args::ExperimentParamsType, embeddings_array::Array, index; do_train_index::Bool=false)
     # Size (128, 512*N)
     training_vector_matrix = cat(embeddings_array..., dims=2) |> Flux.cpu
     convert(Array, training_vector_matrix)
@@ -224,7 +227,7 @@ function addEmbeddoingsToIndex!(argsExperimentParamsType, embeddings_array::Arra
 end
 
 
-function create_embedding_index(argsExperimentParamsType, batch_sequence_iterator::Channel{Any}; quantize::Bool=true)
+function create_embedding_index(args::ExperimentParamsType, model, batch_sequence_iterator::Channel{Any}; quantize::Bool=true)
     faiss_train_size = 5000
 
     faiss_index = get_faiss_index(args, quantize=quantize)
@@ -242,7 +245,7 @@ function create_embedding_index(argsExperimentParamsType, batch_sequence_iterato
         X = reshape(X, :, 1, args.BSIZE)
 
         X = X |> DEVICE
-        sequence_embeddings = embedding_model(X)
+        sequence_embeddings = model(X)
 
         push!(training_vectors, sequence_embeddings)
 
@@ -276,7 +279,7 @@ function create_embedding_index(argsExperimentParamsType, batch_sequence_iterato
 end
 
 
-function _update_predicted_nn_map(argsExperimentParamsType, embeddings_array::Array, index; k::Int64=100)
+function _update_predicted_nn_map(args::ExperimentParamsType, embeddings_array::Array, index; k::Int64=100)
 
     if args.DISTANCE_MATRIX_NORM_METHOD == "max"
         denorm_factor = args.MAX_STRING_LENGTH
@@ -300,7 +303,7 @@ function _update_predicted_nn_map(argsExperimentParamsType, embeddings_array::Ar
     return IDs, D
 end
 
-function get_approximate_nn_overlap(argsExperimentParamsType, faiss_index; k=1000)
+function get_approximate_nn_overlap(args::ExperimentParamsType, faiss_index; k=1000)
 
     # TODO: Make this part of the model that's fit on the training dataset
     # (e.g. for mean distance)
@@ -344,7 +347,7 @@ end
 # trainedfaiss_clusterer, faiss_indexWithEmbeddings = createKNNIndex(args)
 
 
-function get_true_nn_overlap(argsExperimentParamsType; k=1000)
+function get_true_nn_overlap(args::ExperimentParamsType; k=1000)
     # Get the pairwise sequence distance array
     timeFindingTrueNNs = @elapsed begin
         true_nn_map = Dict()
@@ -365,7 +368,10 @@ end
 
 
 @load joinpath(EXPERIMENT_DIR, "args.jld2") args
-@load Utils.get_best_model_path(args.MODEL_SAVE_DIR) embedding_model distance_calibration_model
+# @load joinpath(ROOT_DIR, Utils.get_best_model_path(args.MODEL_SAVE_DIR)) embedding_model distance_calibration_model
+@load MODEL_LOAD_PATH embedding_model distance_calibration_model
+
+
 
 embedding_model = embedding_model |> DEVICE
 
@@ -378,7 +384,7 @@ QUANTIZE=false
 
 batch_sequence_iterator = Channel( (channel) -> batch_sequence_producer(args, channel, inferenceSequences), 1)
 
-faiss_index = create_embedding_index(args, batch_sequence_iterator, quantize=QUANTIZE)
+faiss_index = create_embedding_index(args, embedding_model, batch_sequence_iterator, quantize=QUANTIZE)
 
 # Make direct map if the index allows for it
 if hasproperty(faiss_index, :make_direct_map)

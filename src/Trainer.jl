@@ -1,16 +1,17 @@
 include("./src/ExperimentHelper.jl")
 include("./src/Utils.jl")
-include("./src/Model.jl")
 include("./src/Datasets/DatasetUtils.jl")
 
 include("./src/Datasets/Dataset.jl")
 include("./src/Datasets/SyntheticDataset.jl")
 include("./src/Datasets/SequenceDataset.jl")
+include("./src/Datasets/SequenceDataset.jl")
+include("./src/Models/EditCNN.jl")
 
 # include("./args.jl")
 # include("./Utils.jl")
 # include("./Datasets/SyntheticDataset.jl")
-# include("./Model.jl")
+# include("./EditCNN.jl")
 
 using Parameters
 using BenchmarkTools
@@ -37,7 +38,7 @@ using FileIO
 
 using ..Utils: pairwise_hamming_distance
 using ..ExperimentHelper: ExperimentParams, experiment_meter, save_experiment_args!, create_experiment_dirs!
-using ..Model
+using ..EditCNN
 
 using ..Dataset
 using ..DatasetUtils
@@ -127,7 +128,7 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
 
     function get_embedding_model()
         # Create the model
-        embedding_model = Model.get_embedding_model(
+        embedding_model = EditCNN.get_embedding_model(
             args.MAX_STRING_LENGTH, args.ALPHABET_DIM, args.EMBEDDING_DIM,
             n_intermediate_conv_layers=args.N_INTERMEDIATE_CONV_LAYERS,
             num_readout_layers=args.N_READOUT_LAYERS, readout_activation_fn=args.READOUT_ACTIVATION,
@@ -228,7 +229,7 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
 
         nbs = args.NUM_BATCHES
         # Get initial scaling for epoch
-        l_reg, r_reg = Model.get_loss_scaling(0, args.LOSS_STEPS_DICT, args.L0rank, args.L0emb)
+        l_reg, r_reg = EditCNN.get_loss_scaling(0, args.LOSS_STEPS_DICT, args.L0rank, args.L0emb)
 
         modelParams = params(model)
 
@@ -237,7 +238,7 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
             meter.new_epoch!()
 
             # Get loss scaling for epoch
-            l_reg, r_reg = Model.get_loss_scaling(epoch, args.LOSS_STEPS_DICT, l_reg, r_reg)
+            l_reg, r_reg = EditCNN.get_loss_scaling(epoch, args.LOSS_STEPS_DICT, l_reg, r_reg)
 
 
             @time begin
@@ -258,7 +259,7 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
 
                     meter.epoch_timing_dict["time_spent_forward"] += @elapsed begin
                         gs = gradient(modelParams) do
-                            rankLoss, embedding_loss, totalLoss = Model.triplet_loss(
+                            rankLoss, embedding_loss, totalLoss = EditCNN.triplet_loss(
                                 args, tensorBatch..., embedding_model=model, l_reg=l_reg, r_reg=r_reg,
                             )
                             meter.add_batch_loss!(totalLoss, embedding_loss, rankLoss)

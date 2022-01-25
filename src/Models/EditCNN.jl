@@ -1,6 +1,5 @@
-include("./Utils.jl")
 
-module Model
+module EditCNN
     using BenchmarkTools
     using Random
     using Statistics
@@ -15,7 +14,7 @@ module Model
     using Lathe.models: predict, SimpleLinearRegression
 
 
-    using ..Utils
+    using ...Utils
 
     try
         using CUDA
