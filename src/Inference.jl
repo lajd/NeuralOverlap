@@ -1,11 +1,14 @@
 include("./src/ExperimentHelper.jl")
-include("./src/Utils.jl")
 include("./src/Datasets/Dataset.jl")
 include("./src/Datasets/SequenceDataset.jl")
 include("./src/Datasets/SyntheticDataset.jl")
 include("./src/Models/EditCNN.jl")
 include("./src/Utils/Faiss.jl")
-
+include("./src/Models/EditCNN.jl")
+include("./src/Utils/Misc.jl")
+include("./src/Utils/Evaluation.jl")
+include("./src/Utils/Loss.jl")
+include("./src/Utils/Distance.jl")
 # include("./args.jl")
 # include("./Utils.jl")
 # include("./Datasets/SyntheticDataset.jl")
@@ -32,8 +35,14 @@ using PythonCall
 using ..Dataset
 using ..ExperimentHelper: ExperimentParams
 using ..EditCNN
-using ..Utils
 using ..Faiss
+using ..SyntheticDataset
+using ..SequenceDataset
+using ..MiscUtils: get_best_model_path
+using ..EvaluationUtils: get_top_t_recall_at_k
+using ..LossUtils
+using ..DistanceUtils: pairwise_hamming_distance
+using ..DatasetUtils
 
 try
     using CUDA
@@ -159,7 +168,7 @@ function inference_experiment(args, embedding_model, calibration_model; use_pipe
         # Get the pairwise sequence distance array
         timeFindingTrueNNs = @elapsed begin
             true_nn_map = Dict()
-            _, truepairwise_distances = Utils.pairwise_hamming_distance(inference_sequences)
+            _, truepairwise_distances = pairwise_hamming_distance(inference_sequences)
 
             for i in 1:size(truepairwise_distances)[1]
                 nns = sortperm(truepairwise_distances[i, 1:end])[1:k]
@@ -193,7 +202,7 @@ function inference_experiment(args, embedding_model, calibration_model; use_pipe
 
         true_nn_map = get_true_nn_overlap(inference_sequences, k=numNeighbours)
 
-        epoch_recall_dict = Utils.get_top_t_recall_at_k(
+        epoch_recall_dict = get_top_t_recall_at_k(
             ".", "test", length(true_nn_map), numNN=1000,
             kStart=1, kEnd=1001, kStep=100; startIndex=2, trueid_seq_data_map=true_nn_map, predicted_id_seq_data_map=predicted_nn_map
         )
@@ -208,7 +217,7 @@ end
 @load joinpath(EXPERIMENT_DIR, "args.jld2") args
 
 
-@load joinpath(ROOT_DIR, Utils.get_best_model_path(args.MODEL_SAVE_DIR)) embedding_model distance_calibration_model
+@load joinpath(ROOT_DIR, get_best_model_path(args.MODEL_SAVE_DIR)) embedding_model distance_calibration_model
 
 
 inference_exp = inference_experiment(args, embedding_model, distance_calibration_model)

@@ -1,5 +1,4 @@
 include("./src/ExperimentHelper.jl")
-include("./src/Utils.jl")
 include("./src/Datasets/DatasetUtils.jl")
 
 include("./src/Datasets/Dataset.jl")
@@ -7,7 +6,10 @@ include("./src/Datasets/SyntheticDataset.jl")
 include("./src/Datasets/SequenceDataset.jl")
 include("./src/Datasets/SequenceDataset.jl")
 include("./src/Models/EditCNN.jl")
-
+include("./src/Utils/Misc.jl")
+include("./src/Utils/Evaluation.jl")
+include("./src/Utils/Loss.jl")
+include("./src/Utils/Distance.jl")
 # include("./args.jl")
 # include("./Utils.jl")
 # include("./Datasets/SyntheticDataset.jl")
@@ -36,7 +38,6 @@ using Printf
 using JLD2
 using FileIO
 
-using ..Utils: pairwise_hamming_distance
 using ..ExperimentHelper: ExperimentParams, experiment_meter, save_experiment_args!, create_experiment_dirs!
 using ..EditCNN
 
@@ -45,6 +46,10 @@ using ..DatasetUtils
 
 using ..SyntheticDataset
 using ..SequenceDataset
+using ..MiscUtils
+using ..EvaluationUtils
+using ..LossUtils
+using ..DistanceUtils
 
 
 try
@@ -146,7 +151,7 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
     function evaluate!(train_data_helper, eval_data_helper, model, meter, denorm_factor, epoch, best_mean_abs_eval_error)
         @allowscalar begin
             # Training dataset
-            Utils.evaluate_model(
+            EvaluationUtils.evaluate_model(
                 train_data_helper, model, denorm_factor, numNN=args.NUM_NNS_EXTRACTED,
                 plot_save_path=args.PLOTS_SAVE_DIR, identifier=string("training_epoch_", epoch),
                 kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP,
@@ -156,7 +161,7 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
             # Evaluation dataset
             mean_abs_eval_error, max_abs_eval_error, min_abs_eval_error,
             total_abs_eval_error, mean_estimation_error,
-            epcoh_recall_dict, linear_edit_distance_model = Utils.evaluate_model(
+            epcoh_recall_dict, linear_edit_distance_model = EvaluationUtils.evaluate_model(
                 eval_data_helper, model, denorm_factor, numNN=args.NUM_NNS_EXTRACTED,
                 plot_save_path=args.PLOTS_SAVE_DIR, identifier=string("evaluation_epoch_", epoch),
                 kStart=args.K_START, kEnd=args.K_END, kStep=args.K_STEP,
@@ -200,7 +205,7 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
                 SaveModelTime = @elapsed begin
                     @printf("Saving new model...\n")
                     best_mean_abs_eval_error = Float64(mean_abs_eval_error)
-                    Utils.remove_old_models(args.MODEL_SAVE_DIR)
+                    MiscUtils.remove_old_models(args.MODEL_SAVE_DIR)
                     # Save the model
                     save_path = joinpath(args.MODEL_SAVE_DIR, string("epoch_", epoch, "_", "mean_abs_error_", mean_abs_eval_error, ".jld2"))
                     cpu_model = model |> cpu
@@ -259,7 +264,7 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
 
                     meter.epoch_timing_dict["time_spent_forward"] += @elapsed begin
                         gs = gradient(modelParams) do
-                            rankLoss, embedding_loss, totalLoss = EditCNN.triplet_loss(
+                            rankLoss, embedding_loss, totalLoss = LossUtils.triplet_loss(
                                 args, tensorBatch..., embedding_model=model, l_reg=l_reg, r_reg=r_reg,
                             )
                             meter.add_batch_loss!(totalLoss, embedding_loss, rankLoss)
@@ -269,14 +274,14 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
 
                     meter.epoch_timing_dict["time_spend_backward"] += @elapsed begin
                         if args.DEBUG
-                            meter.add_batch_gs!(Utils.validate_gradients(gs)...)
+                            meter.add_batch_gs!(MiscUtils.validate_gradients(gs)...)
                         end
 
                         update!(opt, modelParams, gs)
 
                         if args.TERMINATE_ON_NAN
                             # Terminate on NaN
-                            if Utils.anynan(modelParams)
+                            if MiscUtils.anynan(modelParams)
                                 @error("Model params NaN after update")
                                 break
                             end
@@ -354,7 +359,7 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
         # Training dataset
         traindataset_helper = Dataset.dataset_helper(
             trainingSequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
-            pairwise_hamming_distance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
+            DistanceUtils.pairwise_hamming_distance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
             args.DISTANCE_MATRIX_NORM_METHOD, args.NUM_NNS_EXTRACTED, args.NUM_NNS_SAMPLED_DURING_TRAINING
         )
 
@@ -365,7 +370,7 @@ function training_experiment(experimentParams::ExperimentParams;use_pipe_cleaner
 
         evaldataset_helper = Dataset.dataset_helper(
             eval_sequences, args.MAX_STRING_LENGTH, args.ALPHABET, args.ALPHABET_SYMBOLS,
-            pairwise_hamming_distance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
+            DistanceUtils.pairwise_hamming_distance, args.KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD,
             args.DISTANCE_MATRIX_NORM_METHOD, args.NUM_NNS_EXTRACTED, args.NUM_NNS_SAMPLED_DURING_TRAINING
         )
 
