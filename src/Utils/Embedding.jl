@@ -26,7 +26,7 @@ module EmbeddingUtils
     end
 
 
-    function embed_sequence_data(dataset_helper, id_seq_data_map::Dict, embedding_model::Flux.Chain; bSize::Int64=512)
+    function embed_sequence_data(dataset_helper, id_seq_data_map::Dict, embedding_model::Flux.Chain, bSize::Int64)
 
         n = length(id_seq_data_map)  # Number of sequences
 

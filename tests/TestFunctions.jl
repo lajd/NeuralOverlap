@@ -1,7 +1,6 @@
 include("./Constants.jl")
 include("./Utils.jl")
 include("./Datasets/SyntheticDataset.jl")
-include("./Model.jl")
 
 using BenchmarkTools
 using Random

@@ -9,7 +9,6 @@ module Faiss
     using Parameters
 
     using ..ExperimentHelper
-    using ..ExperimentHelper: ExperimentParams
     using ..Dataset
 
     faiss = pyimport("faiss")
@@ -22,7 +21,7 @@ module Faiss
         global DEVICE = Flux.cpu
     end
 
-    function add_embeddings_to_kmeans!(args::ExperimentParams, embeddings::Array, clusterer, index; do_train_index::Bool=false)
+    function add_embeddings_to_kmeans!(args, embeddings::Array, clusterer, index; do_train_index::Bool=false)
         # Size (128, 512*N)
         training_vector_matrix = cat(embeddings..., dims=2) |> Flux.cpu
         convert(Array, training_vector_matrix)
@@ -48,7 +47,7 @@ module Faiss
     end
 
 
-    function get_faiss_index(args::ExperimentParams; quantize::Bool=false, d::Int64=128, nlist::Int64=100, m::Int64=8,bits::Int64=8, use_gpu::Bool=false)
+    function get_faiss_index(args; quantize::Bool=false, d::Int64=128, nlist::Int64=100, m::Int64=8,bits::Int64=8, use_gpu::Bool=false)
         d = args.EMBEDDING_DIM
 
         if quantize == true
@@ -67,7 +66,7 @@ module Faiss
         return index
     end
 
-    function create_knn_index(args::ExperimentParams, model::Flux.Chain; quantize::Bool=false, use_gpu::Bool = false)
+    function create_knn_index(args, model::Flux.Chain; quantize::Bool=false, use_gpu::Bool = false)
 
         # TODO: Get this from args
         faiss_train_size = 5000
@@ -147,7 +146,7 @@ module Faiss
     end
 
 
-    function add_embeddings_to_index!(args::ExperimentParams, embeddings_array::Array, index; do_train_index::Bool=false)
+    function add_embeddings_to_index!(args, embeddings_array::Array, index; do_train_index::Bool=false)
         # Size (128, 512*N)
         training_vector_matrix = cat(embeddings_array..., dims=2) |> Flux.cpu
         convert(Array, training_vector_matrix)
@@ -162,7 +161,7 @@ module Faiss
     end
 
 
-    function create_embedding_index(args::ExperimentParams, model, batch_sequence_iterator::Channel{Any}; quantize::Bool=true, use_gpu::Bool=false)
+    function create_embedding_index(args, model::Flux.Chain, batch_sequence_iterator::Channel{Any}; quantize::Bool=true, use_gpu::Bool=false)
         faiss_train_size = 5000
 
         faiss_index = get_faiss_index(args, quantize=quantize, use_gpu=use_gpu)
@@ -179,10 +178,14 @@ module Faiss
             X = permutedims(one_hot_batch, (3, 2, 1))
             X = reshape(X, :, 1, args.BSIZE)
 
+            @info("X shape is %s", size(X))
+
             X = X |> DEVICE
             sequence_embeddings = model(X)
 
             push!(training_vectors, sequence_embeddings)
+
+
 
             numVectors = length(training_vectors)*args.BSIZE
 

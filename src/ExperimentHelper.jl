@@ -7,6 +7,155 @@ module ExperimentHelper
 
     using JLD2: @save
 
+
+    @with_kw struct ExperimentParams
+        # Modes
+        DEBUG::Bool = false  # Run in rebug mode
+
+        ###############
+        # Dataset
+        ###############
+        # Type of dataset to user (from file or synthetic)
+        ## Synthetic dataset
+        USE_SYNTHETIC_DATA::Bool = true
+        ## Simulated sequence dataset
+        USE_SEQUENCE_DATA::Bool = false
+
+        # Sequences
+        ## Alphabet for genomic data
+        ALPHABET::Vector{Char} = ['A';'T';'C';'G']
+        ALPHABET_SYMBOLS = [Symbol(i) for i in ALPHABET]
+        ALPHABET_DIM::Int64 = length(ALPHABET_SYMBOLS)
+
+        # Min/Max generated sequence length for synthetic data
+        # Or the prefix/suffix length to use for real data
+        MIN_STRING_LENGTH::Int64 = 128
+        MAX_STRING_LENGTH::Int64 = 128
+
+        # Dataset sampling method
+        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD::String = "ranked"  # ranked, uniform
+
+        # Synthetic dataset args
+        RATIO_OF_RANDOM_SAMPLES::Float64 = 0.015
+        ## e.g. 10k examples -> 250 random samples, ~40 sequences of similarity 0.6-0.95 each random sample
+        ## Note that average similarity for 4 char sequences is 25%, so we want min similarity > 0.25.
+        ## There will be many examples with ~0.25 similarity
+        SIMILARITY_MIN::Float64 = 0.3
+        SIMILARITY_MAX::Float64 = 0.95
+
+        ###############
+        # Model Arch
+        ###############
+        N_READOUT_LAYERS::Int64 = 1
+        READOUT_ACTIVATION = relu
+
+        N_INTERMEDIATE_CONV_LAYERS::Int64 = 4
+        CONV_ACTIVATION = identity
+
+        USE_INPUT_BATCHNORM::Bool = false
+        USE_INTERMEDIATE_BATCHNORM::Bool = false
+        USE_READOUT_DROPOUT::Bool = false
+        CONV_ACTIVATION_LAYER_MOD::Int64 = 1
+
+        # Pooling
+        POOLING_METHOD::String = "mean"
+        POOL_KERNEL::Int64 = 2
+
+        # Model
+        OUT_CHANNELS::Int64 = 8
+        KERNEL_SIZE::Int64 = 3
+        EMBEDDING_DIM::Int64 = 128
+        DISTANCE_METHOD::String ="l2"
+
+        L2_NORMALIZE_EMBEDDINGS = true
+
+        ###############
+        # Training
+        ################
+        # Distance matrix normalization method
+        DISTANCE_MATRIX_NORM_METHOD::String = "max"
+
+        # Dataset size
+        NUM_TRAIN_EXAMPLES::Int64 = 1000
+        NUM_EVAL_EXAMPLES::Int64 = 1000
+        NUM_TEST_EXAMPLES::Int64 = 1000
+
+        # Number of samples to use for error estimation
+        EST_ERROR_N::Int64 = 1000
+
+
+        BSIZE::Int64 = 256
+        NUM_EPOCHS::Int64 = 50
+        NUM_NNS_EXTRACTED::Int64 = 1000
+        K_START::Int64 = 1
+        K_END::Int64 = 1001
+        K_STEP::Int64 = 10
+        NUM_NNS_SAMPLED_DURING_TRAINING::Int64 = 100
+
+        FAISS_TRAIN_SIZE::Int64 = 5000
+
+
+        @assert NUM_EPOCHS > 0
+        LR::Float64 = 0.01
+        GRADIENT_CLIP_VALUE = nothing
+        # Evaluation
+        EVAL_EVERY::Int64 = 5
+        # Loss scaling
+        L0rank::Float64 = 1.
+        L0emb::Float64 = 0.1
+        _N_LOSS_STEPS = Int32(floor(NUM_EPOCHS / 5))
+        LOSS_STEPS_DICT = Dict(
+            _N_LOSS_STEPS * 0 => (0., 10.),
+            _N_LOSS_STEPS * 1 => (10., 10.),
+            _N_LOSS_STEPS * 2 => (10., 1.),
+            _N_LOSS_STEPS * 3 => (5., 0.1),
+            _N_LOSS_STEPS * 4 => (1., 0.01),
+        )
+
+        # Compute num batches such that, on average, each sequence will be used once
+        NUM_BATCHES::Int64 = 512
+
+        USE_EXP_DECAY::Bool = true
+        EXP_DECAY_EVERY_N_EPOCHS::Int64 = 5
+        EXP_DECAY_VALUE::Float64 = 0.5
+        EXP_DECAY_CLIP::Float64 = 1e-5
+
+        TERMINATE_ON_NAN::Bool = true
+
+        TRAIN_EVAL_FASTQ_FILEPATH = "/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix174_train.fastq_R1.fastq"
+
+        ###############
+        # Inference
+        ###############
+        INFERENCE_FASTQ_FILEPATH = "/home/jon/JuliaProjects/NeuralOverlap/data_fetch/covid_test.fa_R1.fastq"
+
+        ################
+        # Experiment
+        ################
+        EXPERIMENT_NAME::String = string_from_parameters([now()])
+        EXPERIMENT_DIR::String = joinpath("data/experiments", EXPERIMENT_NAME)
+        MODEL_SAVE_DIR::String = joinpath(EXPERIMENT_DIR, "saved_models")
+        DATASET_SAVE_PATH::String = joinpath(EXPERIMENT_DIR, "dataset.jld")
+        PLOTS_SAVE_DIR::String = joinpath(EXPERIMENT_DIR, "saved_plots")
+        CONSTANTS_SAVE_PATH::String = joinpath(EXPERIMENT_DIR, "constants.txt")
+    end
+
+    # Create the directories for saving the model checkpoints and plots
+    function create_experiment_dirs!(args)
+        mkpath(args.EXPERIMENT_DIR)
+        mkpath(args.MODEL_SAVE_DIR)
+        mkpath(args.PLOTS_SAVE_DIR)
+    end
+
+    function save_experiment_args!(args)
+        save_path = joinpath(args.EXPERIMENT_DIR, "args.txt")
+        open(save_path, "a") do f
+            write(f, string(args))
+        end
+        args_save_file = joinpath(args.EXPERIMENT_DIR, "args.jld2")
+        @save args_save_file args=args
+    end
+
     function string_from_parameters(parameters::Array)
         s = []
         for p in parameters
@@ -163,145 +312,37 @@ module ExperimentHelper
 
     end
 
-
-    @with_kw struct ExperimentParams
-        # Modes
-        DEBUG::Bool = false  # Run in rebug mode
-
-        ###############
-        # Dataset
-        ###############
-        # Type of dataset to user (from file or synthetic)
-        ## Synthetic dataset
-        USE_SYNTHETIC_DATA::Bool = true
-        ## Simulated sequence dataset
-        USE_SEQUENCE_DATA::Bool = false
-
-        # Sequences
-        ## Alphabet for genomic data
-        ALPHABET::Vector{Char} = ['A';'T';'C';'G']
-        ALPHABET_SYMBOLS = [Symbol(i) for i in ALPHABET]
-        ALPHABET_DIM::Int64 = length(ALPHABET_SYMBOLS)
-
-        # Min/Max generated sequence length for synthetic data
-        # Or the prefix/suffix length to use for real data
-        MIN_STRING_LENGTH::Int64 = 128
-        MAX_STRING_LENGTH::Int64 = 128
-
-        # Dataset sampling method
-        KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD::String = "ranked"  # ranked, uniform
-
-        # Synthetic dataset args
-        RATIO_OF_RANDOM_SAMPLES::Float64 = 0.015
-        ## e.g. 10k examples -> 250 random samples, ~40 sequences of similarity 0.6-0.95 each random sample
-        ## Note that average similarity for 4 char sequences is 25%, so we want min similarity > 0.25.
-        ## There will be many examples with ~0.25 similarity
-        SIMILARITY_MIN::Float64 = 0.3
-        SIMILARITY_MAX::Float64 = 0.95
-
-        ###############
-        # Model Arch
-        ###############
-        N_READOUT_LAYERS::Int64 = 1
-        READOUT_ACTIVATION = relu
-
-        N_INTERMEDIATE_CONV_LAYERS::Int64 = 4
-        CONV_ACTIVATION = identity
-
-        USE_INPUT_BATCHNORM::Bool = false
-        USE_INTERMEDIATE_BATCHNORM::Bool = false
-        USE_READOUT_DROPOUT::Bool = false
-        CONV_ACTIVATION_LAYER_MOD::Int64 = 1
-
-        # Pooling
-        POOLING_METHOD::String = "mean"
-        POOL_KERNEL::Int64 = 2
-
-        # Model
-        OUT_CHANNELS::Int64 = 8
-        KERNEL_SIZE::Int64 = 3
-        EMBEDDING_DIM::Int64 = 128
-        DISTANCE_METHOD::String ="l2"
-
-        L2_NORMALIZE_EMBEDDINGS = true
-
-        ###############
-        # Training
-        ################
-        # Distance matrix normalization method
-        DISTANCE_MATRIX_NORM_METHOD::String = "max"
-
-        # Dataset size
-        NUM_TRAIN_EXAMPLES::Int64 = 1000
-        NUM_EVAL_EXAMPLES::Int64 = 1000
-        NUM_TEST_EXAMPLES::Int64 = 1000
-
-        # Number of samples to use for error estimation
-        EST_ERROR_N::Int64 = 1000
-
-
-        BSIZE::Int64 = 256
-        NUM_EPOCHS::Int64 = 50
-        NUM_NNS_EXTRACTED::Int64 = 1000
-        K_START::Int64 = 1
-        K_END::Int64 = 1001
-        K_STEP::Int64 = 10
-        NUM_NNS_SAMPLED_DURING_TRAINING::Int64 = 100
-
-        FAISS_TRAIN_SIZE::Int64 = 5000
-
-
-        @assert NUM_EPOCHS > 0
-        LR::Float64 = 0.01
-        GRADIENT_CLIP_VALUE = nothing
-        # Evaluation
-        EVAL_EVERY::Int64 = 5
-        # Loss scaling
-        L0rank::Float64 = 1.
-        L0emb::Float64 = 0.1
-        _N_LOSS_STEPS = Int32(floor(NUM_EPOCHS / 5))
-        LOSS_STEPS_DICT = Dict(
-            _N_LOSS_STEPS * 0 => (0., 10.),
-            _N_LOSS_STEPS * 1 => (10., 10.),
-            _N_LOSS_STEPS * 2 => (10., 1.),
-            _N_LOSS_STEPS * 3 => (5., 0.1),
-            _N_LOSS_STEPS * 4 => (1., 0.01),
+    function get_pipe_cleaner_args()
+        return ExperimentParams(
+            NUM_EPOCHS=10,
+            NUM_BATCHES=4,  #
+            MAX_STRING_LENGTH=64,
+            BSIZE=64,
+            N_INTERMEDIATE_CONV_LAYERS=2,
+            CONV_ACTIVATION=relu,
+            USE_INPUT_BATCHNORM=false,
+            USE_INTERMEDIATE_BATCHNORM=true,
+            USE_READOUT_DROPOUT=false,
+            OUT_CHANNELS = 2,
+            N_READOUT_LAYERS=1,
+            CONV_ACTIVATION_LAYER_MOD=1,
+            L0emb=0.1,
+            LOSS_STEPS_DICT = Dict(),
+            K_START = 1,
+            K_END = 101,
+            K_STEP = 1,
+            NUM_NNS_EXTRACTED=100,
+            NUM_NNS_SAMPLED_DURING_TRAINING=100,  # This must be less than NUM_NNS_EXTRACTED
+            POOLING_METHOD="mean",
+            DISTANCE_METHOD="l2",
+            DISTANCE_MATRIX_NORM_METHOD="mean",
+            GRADIENT_CLIP_VALUE=1,
+            NUM_TRAIN_EXAMPLES=500,
+            NUM_EVAL_EXAMPLES=500,
+            NUM_TEST_EXAMPLES=500,
+            USE_SYNTHETIC_DATA=false,
+            USE_SEQUENCE_DATA=true,
         )
-
-        # Compute num batches such that, on average, each sequence will be used once
-        NUM_BATCHES::Int64 = 512
-
-        USE_EXP_DECAY::Bool = true
-        EXP_DECAY_EVERY_N_EPOCHS::Int64 = 5
-        EXP_DECAY_VALUE::Float64 = 0.5
-        EXP_DECAY_CLIP::Float64 = 1e-5
-
-        TERMINATE_ON_NAN::Bool = true
-
-        ################
-        # Experiment
-        ################
-        EXPERIMENT_NAME::String = string_from_parameters([now()])
-        EXPERIMENT_DIR::String = joinpath("data/experiments", EXPERIMENT_NAME)
-        MODEL_SAVE_DIR::String = joinpath(EXPERIMENT_DIR, "saved_models")
-        DATASET_SAVE_PATH::String = joinpath(EXPERIMENT_DIR, "dataset.jld")
-        PLOTS_SAVE_DIR::String = joinpath(EXPERIMENT_DIR, "saved_plots")
-        CONSTANTS_SAVE_PATH::String = joinpath(EXPERIMENT_DIR, "constants.txt")
     end
 
-    # Create the directories for saving the model checkpoints and plots
-    function create_experiment_dirs!(args)
-        mkpath(args.EXPERIMENT_DIR)
-        mkpath(args.MODEL_SAVE_DIR)
-        mkpath(args.PLOTS_SAVE_DIR)
-    end
-
-    function save_experiment_args!(args)
-        save_path = joinpath(args.EXPERIMENT_DIR, "args.txt")
-        open(save_path, "a") do f
-            write(f, string(args))
-        end
-        args_save_file = joinpath(args.EXPERIMENT_DIR, "args.jld2")
-        @save args_save_file args=args
-    end
 end

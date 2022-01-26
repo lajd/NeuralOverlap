@@ -137,7 +137,7 @@ module EvaluationUtils
     end
 
 
-    function evaluate_model(dataset_helper, embedding_model::Flux.Chain, denorm_factor::Float64; bSize::Int64=512,
+    function evaluate_model(dataset_helper, embedding_model::Flux.Chain, denorm_factor::Float64,  bSize::Int64;
          method="l2", numNN=100, est_error_n=1000, plot_save_path=".",
          identifier="", kStart=kStart,
          kEnd=kEnd, kStep=kStep
@@ -151,7 +151,7 @@ module EvaluationUtils
 
         timeEmbedSequences = @elapsed begin
             Etensor = embed_sequence_data(
-                dataset_helper, id_seq_data_map, embedding_model, bSize=bSize
+                dataset_helper, id_seq_data_map, embedding_model, bSize
             )
         end
 
