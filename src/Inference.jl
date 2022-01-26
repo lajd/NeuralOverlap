@@ -40,6 +40,7 @@ module Inference
     using ..LossUtils
     using ..DistanceUtils: pairwise_hamming_distance
     using ..DatasetUtils
+    using ..EvaluationUtils
 
     try
         using CUDA
@@ -194,8 +195,8 @@ module Inference
 
             true_nn_map = get_true_nn_overlap(inference_sequences, k=numNeighbours)
 
-            epoch_recall_dict = get_top_t_recall_at_k(
-                plot_save_path=args.PLOTS_SAVE_DIR, "inference", length(true_nn_map), numNN=1000,
+            epoch_recall_dict = EvaluationUtils.get_top_t_recall_at_k(
+                args.PLOTS_SAVE_DIR, "inference", length(true_nn_map), numNN=1000,
                 kStart=1, kEnd=1001, kStep=100; startIndex=2, trueid_seq_data_map=true_nn_map, predicted_id_seq_data_map=predicted_nn_map
             )
 
