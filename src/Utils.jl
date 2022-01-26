@@ -12,8 +12,7 @@ module Utils
     using DataStructures
     using Lathe
 
-    using ..DatasetUtils: one_hot_encode_sequences, _one_hot_encode_sequence, one_hot_encode_sequence_batch, format_one_hot_sequence_array, plot_knn_distances, plot_triplet_batch_distances, plot_sequence_distances
-
+    using ..DatasetUtils: format_one_hot_sequence_array
 
     try
         using CUDA
@@ -165,7 +164,7 @@ module Utils
     function get_top_t_recall_at_k(plot_save_path, identifier, n_sequences; numNN=1000,
         kStart=1, kEnd=1001, kStep=100, startIndex=2,
         truetrue_distance_matrix=nothing, trueid_seq_data_map=nothing, predicted_distance_matrix=nothing,
-        predictedid_seq_data_map=nothing, nSample=1000
+        predicted_id_seq_data_map=nothing, nSample=1000
     )
         # Get k-nns and recall
         kValues = [k for k in range(kStart, kEnd + 1, step=kStep)]
@@ -186,8 +185,8 @@ module Utils
                 actual_knns = nothing
                 predicted_knns = nothing
 
-                if predictedid_seq_data_map != nothing
-                    predicted_knns = predictedid_seq_data_map[id]["topKNN"][startIndex:numNN]
+                if predicted_id_seq_data_map != nothing
+                    predicted_knns = predicted_id_seq_data_map[id]["topKNN"][startIndex:numNN]
                 elseif predicted_distance_matrix != nothing
                     predicted_knns = sortperm(predicted_distance_matrix[id, 1:end])[startIndex:numNN]
                 else
