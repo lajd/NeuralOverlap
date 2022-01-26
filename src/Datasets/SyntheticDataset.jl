@@ -1,17 +1,3 @@
-"""
-# module SyntheticDataset
-
-- Julia version:
-- Author: jon
-- Date: 2021-12-12
-
-# Examples
-
-```jldoctest
-julia>
-```
-"""
-
 module SyntheticDataset
     using Random
     using Distributions

@@ -1,14 +1,15 @@
-include("./ExperimentHelper.jl")
-include("./Datasets/Dataset.jl")
-include("./Datasets/SequenceDataset.jl")
-include("./Datasets/SyntheticDataset.jl")
-include("./Utils/Faiss.jl")
-include("./Models/EditCNN.jl")
-include("./Utils/Misc.jl")
-include("./Utils/Evaluation.jl")
-include("./Utils/Loss.jl")
-include("./Utils/Distance.jl")
-include("./Datasets/SyntheticDataset.jl")
+include("ExperimentHelper.jl")
+include("Models/EditCNN.jl")
+
+include("Utils/Misc.jl")
+include("Utils/Evaluation.jl")
+include("Utils/Loss.jl")
+include("Utils/Distance.jl")
+include("Utils/Faiss.jl")
+
+include("Datasets/Dataset.jl")
+include("Datasets/SequenceDataset.jl")
+include("Datasets/SyntheticDataset.jl")
 
 module Inference
 
@@ -17,7 +18,6 @@ module Inference
     using Statistics
 
     using Flux
-    using Flux: onehot, chunk, batchseq, throttle, logitcrossentropy, params, update!, Chain
     using StatsBase: wsample
     using Base.Iterators: partition
     using Parameters: @with_kw
@@ -31,13 +31,12 @@ module Inference
     using PythonCall
 
     using ..Dataset
-    using ..ExperimentHelper: ExperimentParams
+    using ..ExperimentHelper
     using ..EditCNN
     using ..Faiss
     using ..SyntheticDataset
     using ..SequenceDataset
-    using ..MiscUtils: get_best_model_path
-    using ..EvaluationUtils: get_top_t_recall_at_k
+    using ..MiscUtils
     using ..LossUtils
     using ..DistanceUtils: pairwise_hamming_distance
     using ..DatasetUtils
@@ -52,7 +51,7 @@ module Inference
     np = pyimport("numpy")
 
 
-    function inferer(args, embedding_model::Flux.Chain, calibration_model; use_pipe_cleaner::Bool=false,
+    function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; use_pipe_cleaner::Bool=false,
          quantize_faiss_index::Bool=false, max_inference_samples::Int64=Int(1e4),
          use_gpu::Bool=false)
 
@@ -175,7 +174,7 @@ module Inference
             return true_nn_map
         end
 
-        function execute()
+        function infer()
             embedding_model = embedding_model |> DEVICE
 
             trainmode!(embedding_model, false)
@@ -196,12 +195,12 @@ module Inference
             true_nn_map = get_true_nn_overlap(inference_sequences, k=numNeighbours)
 
             epoch_recall_dict = get_top_t_recall_at_k(
-                ".", "test", length(true_nn_map), numNN=1000,
+                plot_save_path=args.PLOTS_SAVE_DIR, "inference", length(true_nn_map), numNN=1000,
                 kStart=1, kEnd=1001, kStep=100; startIndex=2, trueid_seq_data_map=true_nn_map, predicted_id_seq_data_map=predicted_nn_map
             )
 
             return predicted_nn_map, true_nn_map, epoch_recall_dict, faiss_index
         end
-        () -> (execute;get_inference_sequences;batch_sequence_producer;_update_predicted_nn_map;get_approximate_nn_overlap;get_true_nn_overlap;faiss)
+        () -> (infer;get_inference_sequences;batch_sequence_producer;_update_predicted_nn_map;get_approximate_nn_overlap;get_true_nn_overlap;faiss)
     end
 end

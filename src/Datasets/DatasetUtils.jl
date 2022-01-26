@@ -1,17 +1,3 @@
-"""
-# module DatasetUtils
-
-- Julia version:
-- Author: jon
-- Date: 2021-12-12
-
-# Examples
-
-```jldoctest
-julia>
-```
-"""
-
 module DatasetUtils
     using Random
     using Statistics

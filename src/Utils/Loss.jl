@@ -1,4 +1,4 @@
-include("./Distance.jl")
+include("Distance.jl")
 
 module LossUtils
 

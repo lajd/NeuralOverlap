@@ -1,16 +1,3 @@
-"""
-# module SequenceDataset
-
-- Julia version:
-- Author: jon
-- Date: 2021-12-11
-
-# Examples
-
-```jldoctest
-julia>
-```
-"""
 module SequenceDataset
     using BioSequences
     using FASTX

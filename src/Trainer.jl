@@ -1,15 +1,15 @@
-include("./ExperimentHelper.jl")
-include("./Datasets/DatasetUtils.jl")
-include("./Datasets/Dataset.jl")
-include("./Datasets/SyntheticDataset.jl")
-include("./Datasets/SequenceDataset.jl")
-include("./Datasets/SequenceDataset.jl")
-include("./Models/EditCNN.jl")
-include("./Utils/Misc.jl")
-include("./Utils/Evaluation.jl")
-include("./Utils/Loss.jl")
-include("./Utils/Distance.jl")
-include("./Datasets/SyntheticDataset.jl")
+include("ExperimentHelper.jl")
+include("Models/EditCNN.jl")
+
+include("Utils/Misc.jl")
+include("Utils/Evaluation.jl")
+include("Utils/Loss.jl")
+include("Utils/Distance.jl")
+
+include("Datasets/Dataset.jl")
+include("Datasets/DatasetUtils.jl")
+include("Datasets/SyntheticDataset.jl")
+include("Datasets/SequenceDataset.jl")
 
 module Trainer
 
@@ -18,16 +18,13 @@ module Trainer
     using Statistics
 
     using Flux
-    using Flux: onehot, chunk, batchseq, throttle, logitcrossentropy, params, update!, trainmode!
     using StatsBase: wsample
     using Base.Iterators: partition
     using Parameters: @with_kw
     using Distances
     using LinearAlgebra
     using Zygote
-    using Zygote: gradient, @ignore
     using JLD2: @load, @save
-    using Debugger
     using Plots
 
     using Random
@@ -36,7 +33,7 @@ module Trainer
     using JLD2
     using FileIO
 
-    using ..ExperimentHelper: ExperimentParams, experiment_meter, save_experiment_args!, create_experiment_dirs!, experiment_meter
+    using ..ExperimentHelper
     using ..EditCNN
 
     using ..Dataset
@@ -55,14 +52,12 @@ module Trainer
         using CUDA: @allowscalar
         # TODO: Don't require allow scalar
         global DEVICE = Flux.gpu
-        global ArrayType = Union{Vector{Float32}, Matrix{Float32}, CuArray{Float32}}
     catch e
         global DEVICE = Flux.cpu
-        global ArrayType = Union{Vector{Float32}, Matrix{Float32}}
     end
 
 
-    function trainer(experimentParams)
+    function traininghelper(experimentParams)
         """ Helpers for training an experiment """
 
         args = experimentParams
@@ -107,6 +102,8 @@ module Trainer
 
             @info("---------Embedding model-------------")
             @info(embedding_model)
+            @info("-------------------------------------")
+
             return embedding_model
         end
 
@@ -189,7 +186,7 @@ module Trainer
                 throw("Invalid distance matrix norm method")
             end
 
-            meter = experiment_meter()
+            meter = ExperimentHelper.experiment_meter()
             best_mean_abs_eval_error = 1e6
 
             @printf("Beginning training...\n")
@@ -198,7 +195,7 @@ module Trainer
             # Get initial scaling for epoch
             l_reg, r_reg = EditCNN.get_loss_scaling(0, args.LOSS_STEPS_DICT, args.L0rank, args.L0emb)
 
-            modelParams = params(model)
+            modelParams = Flux.params(model)
 
             for epoch in 1:args.NUM_EPOCHS
 
@@ -211,7 +208,7 @@ module Trainer
                 @time begin
                     @info("Starting epoch %s...\n", epoch)
                     # Set to train mode
-                    trainmode!(model, true)
+                    Flux.trainmode!(model, true)
 
                     meter.epoch_timing_dict["time_spent_fetching_data"] += @elapsed begin
                         epochBatchChannel = Channel( (channel) -> train_data_helper.get_batch_tuples_producer(channel, nbs, args.BSIZE, DEVICE), 1)
@@ -225,7 +222,7 @@ module Trainer
                         end
 
                         meter.epoch_timing_dict["time_spent_forward"] += @elapsed begin
-                            gs = gradient(modelParams) do
+                            gs = Zygote.gradient(modelParams) do
                                 rankLoss, embedding_loss, totalLoss = LossUtils.triplet_loss(
                                     args, tensorBatch..., embedding_model=model, l_reg=l_reg, r_reg=r_reg,
                                 )
@@ -239,7 +236,7 @@ module Trainer
                                 meter.add_batch_gs!(MiscUtils.validate_gradients(gs)...)
                             end
 
-                            update!(opt, modelParams, gs)
+                            Flux.update!(opt, modelParams, gs)
 
                             if args.TERMINATE_ON_NAN
                                 # Terminate on NaN
@@ -267,7 +264,7 @@ module Trainer
                     if mod(epoch, args.EVAL_EVERY) == 0
                         evaluateTime = @elapsed begin
                             @printf("-----Evaluation dataset-----\n")
-                            trainmode!(model, false)
+                            Flux.trainmode!(model, false)
 
                             # Run evaluation
                             evaluate!(train_data_helper, eval_data_helper, model, meter, denorm_factor, epoch, best_mean_abs_eval_error)
@@ -304,8 +301,8 @@ module Trainer
 
         function run_training_experiment()
             # Initiate experiment
-            create_experiment_dirs!(args)
-            save_experiment_args!(args)
+            ExperimentHelper.create_experiment_dirs!(args)
+            ExperimentHelper.save_experiment_args!(args)
 
             # Create embedding model
             embedding_model = get_embedding_model()
@@ -315,6 +312,10 @@ module Trainer
 
             # Get dataset split
             trainingSequences, eval_sequences, test_sequences =  get_dataset_split()
+
+            @info("---------Training dataset split-------------")
+            @info(embedding_model)
+            @info("-------------------------------------")
 
             # Training dataset
             traindataset_helper = Dataset.dataset_helper(
@@ -343,17 +344,5 @@ module Trainer
 
         end
         () -> (execute;get_optimizer;run_training_experiment;train;get_dataset_split;evaluate)
-    end
-
-
-
-    function run_experiment_set(argslist::Array{ExperimentParams})
-        # for args in argList
-        try
-            pass
-        catch e
-            display(stacktrace(catch_backtrace()))
-            @warn("Skipping experiment: ", e)
-        end
     end
 end

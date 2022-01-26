@@ -1,5 +1,5 @@
-include("./Embedding.jl")
-include("./Distance.jl")
+include("Embedding.jl")
+include("Distance.jl")
 
 module EvaluationUtils
 
@@ -149,7 +149,7 @@ module EvaluationUtils
         true_distance_matrix = dataset_helper.get_distance_matrix()
         numSeqs = length(id_seq_data_map)
 
-        timeEmbedSequences = @elapsed begin
+        embed_sequence_time = @elapsed begin
             Etensor = embed_sequence_data(
                 dataset_helper, id_seq_data_map, embedding_model, bSize
             )
@@ -188,7 +188,7 @@ module EvaluationUtils
         end
 
         # Log results
-        @printf("Time to embed sequences: %s \n", timeEmbedSequences)
+        @printf("Time to embed sequences: %s \n", embed_sequence_time)
         @printf("Time to compute pred distance matrix: %s \n", timeGetPredictedtrue_distance_matrix)
         @printf("Time to get recall at K: %s \n", timeGetRecallAtK)
         @printf("Time to get error estimation: %s \n", timeGetEstimationError)
