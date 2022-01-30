@@ -1,38 +1,67 @@
-include("Trainer.jl")
-include("Inference.jl")
-include("ExperimentHelper.jl")
-
-
 module NeuralOverlap
-    using JLD2: @load
-    using Flux
+    include("experiment_helper.jl")
+    include("utils/Utils.jl")
+    include("models/Models.jl")
+    include("dataset/Dataset.jl")
 
-    using ..Trainer
-    using ..Inference
-    using ..ExperimentHelper
+    include("trainer.jl")
+    include("inference.jl")
 
-    function run_experiment(pipe_cleaner::Bool=true)
-        if pipe_cleaner == true
-            experiment_args = ExperimentHelper.get_pipe_cleaner_args()
-        else
-            experiment_args = ExperimentHelper.ExperimentParams()
-        end
+    function train_eval_test(experiment_args)
+        @info("Running experiment $(experiment_args.EXPERIMENT_NAME)")
+        @info("Experiment args are $experiment_args")
 
-        @info("Running experiment %s\n", experiment_args.EXPERIMENT_NAME)
+        experiment_time = @elapsed begin
+            train_helper = traininghelper(experiment_args)
 
-        @info("Experiment args are %s\n", experiment_args)
-
-        embed_sequence_time = @elapsed begin
-            train_helper = Trainer.traininghelper(experiment_args)
-
+            @info("Beginning experiment")
             trained_embedding_model = train_helper.run_training_experiment()
             distance_calibration_model = nothing
 
-            inference_helper = Inference.inferencehelper(experiment_args, trained_embedding_model, distance_calibration_model)
-            predicted_nn_map, true_nn_map, epoch_recall_dict, faiss_index = inference_helper.infer()
-            @info("Exerpiment completed in %ss", embed_sequence_time)
-        end
+            inference_helper = inferencehelper(
+                experiment_args, trained_embedding_model,
+                distance_calibration_model, is_testing=true
+            )
+            predicted_nn_map, true_nn_map, epoch_recall_dict, faiss_index = inference_helper.test()
 
-        return predicted_nn_map, true_nn_map, epoch_recall_dict, faiss_index
+        end
+        @info("Exerpiment completed in $(experiment_time)s")
+        return trained_embedding_model, distance_calibration_model, predicted_nn_map, true_nn_map, epoch_recall_dict, faiss_index
     end
+
+    function infer(experiment_args, embedding_model, calibration_model)
+        @info("Running inference $(experiment_args.EXPERIMENT_NAME)")
+        inference_time = @elapsed begin
+            inference_helper = inferencehelper(
+                experiment_args,
+                embedding_model,
+                calibration_model,
+                is_testing=false  # Save as mmap
+            )
+            predicted_nn_map, faiss_index = inference_helper.infer()
+        end
+        @info("Inference completed in $(inference_time)s")
+        return predicted_nn_map, faiss_index
+    end
+
+    function run()
+        # Train/eval/test
+        trained_embedding_model, distance_calibration_model,
+        predicted_nn_map, true_nn_map, epoch_recall_dict,
+        faiss_index = train_eval_test(experiment_args)
+
+        # Inference
+        predicted_nn_map, faiss_index = infer(
+            experiment_args, trained_embedding_model, distance_calibration_model
+        )
+    end
+
+    function read_ids_and_distances(args)
+
+    end
+
+    function read_inference_faiss_index(args)
+    end
+
+
 end

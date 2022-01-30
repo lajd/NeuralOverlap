@@ -14,5 +14,8 @@
 # Plots
 *.png
 
-data
+data/raw_data/simulated_reads
+data/experiments
 deprecated
+
+RunExperiment.jl
