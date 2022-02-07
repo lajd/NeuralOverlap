@@ -294,10 +294,7 @@ function experiment_meter()
     function log_epoch_results!(args, epoch, l_reg, r_reg)
         losses = [toscientific(x) for x in get_experiment_losses()]
         timing = [toscientific(x) for x in get_epoch_timing_results()]
-        @info("Epoch $(epoch) training results")
-        @info("Experiment dir is: $(args.EXPERIMENT_DIR)")
-        @info("Average loss sum: $(losses[1]), Average Rank loss: $(losses[2]), Average Embedding loss $(losses[3])")
-        @info("l_reg: $(toscientific(l_reg)), r_reg: $(toscientific(r_reg))")
+        @info("Epoch $(epoch) training results | Experiment dir: $(args.EXPERIMENT_DIR) | Average loss sum: $(losses[1]), Average Rank loss: $(losses[2]), Average Embedding loss $(losses[3]) | l_reg: $(toscientific(l_reg)), r_reg: $(toscientific(r_reg))")
         @info("DataFetchTime $(timing[1]), TimeForward $(timing[2]), TimeBackward $(timing[3])")
     end
 

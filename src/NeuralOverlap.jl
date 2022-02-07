@@ -25,7 +25,7 @@ module NeuralOverlap
             predicted_nn_map, true_nn_map, epoch_recall_dict, faiss_index = inference_helper.test()
 
         end
-        @info("Exerpiment completed in $(experiment_time)s")
+        @info("Exerpiment completed in $(round(experiment_time))s")
         return trained_embedding_model, distance_calibration_model, predicted_nn_map, true_nn_map, epoch_recall_dict, faiss_index
     end
 

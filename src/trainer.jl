@@ -108,7 +108,7 @@ function traininghelper(experimentParams)
             # Save the model, removing old ones
             if epoch > 1 && mean_abs_eval_error < best_mean_abs_eval_error
                 SaveModelTime = @elapsed begin
-                    @info("Saving new model...")
+                    @debug("Saving new model...")
                     best_mean_abs_eval_error = Float64(mean_abs_eval_error)
                     Utils.remove_old_models(args.MODEL_SAVE_DIR)
                     # Save the model
@@ -116,7 +116,7 @@ function traininghelper(experimentParams)
                     cpu_model = model |> cpu
                     @save save_path embedding_model=cpu_model distance_calibration_model=linear_edit_distance_model denorm_factor=denorm_factor
                 end
-                @info("Save model in: $(round(SaveModelTime))s")
+                @debug("Saved model in: $(round(SaveModelTime))s")
             end
         end
     end
@@ -150,7 +150,7 @@ function traininghelper(experimentParams)
             # Get loss scaling for epoch
             l_reg, r_reg = Models.get_loss_scaling(epoch, args.LOSS_STEPS_DICT, l_reg, r_reg)
 
-            @time begin
+            epoch_total_time = @elapsed begin
                 # Set to train mode
                 Flux.trainmode!(model, true)
 
@@ -209,9 +209,11 @@ function traininghelper(experimentParams)
                         evaluate!(train_data_helper, eval_data_helper, model, meter, denorm_factor, epoch, best_mean_abs_eval_error)
 
                     end
-                    @info("Evaluation time: $(round(evaluateTime))s")
+                    @info("Total Evaluation time: $(round(evaluateTime))s")
                 end
             end
+            @info("Total epoch time is $(round(epoch_total_time))s")
+
         end
 
         return model

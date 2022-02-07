@@ -17,6 +17,7 @@
 ## Prerequisites
 - Linux with GPU (tested on Ubuntu 20.04, CUDA 11.4, nvidia driver 470.82.01)
 - Julia (tested on Version 1.6.4)
+- Python >= 3.6
 
 ## Installation
 
@@ -44,6 +45,11 @@ Pkg.precompile()
 ```
 
 ## Preparing the dataset
+
+### Install python dependencies
+```
+pip install -r requirements.txt
+```
 
 ### Download viral sequence data for training/inference
 Prepare the training data

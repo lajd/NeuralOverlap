@@ -50,11 +50,7 @@ function _get_estimation_error_and_plot(pred_distance_array::Vector{Any}, true_d
     savefig(fig, joinpath(save_dir, string("epoch", "_", identifier, estimationErrorIdentifier,  ".png")))
 
     @info("---------------$(estimationErrorIdentifier)--------------")
-    @info("Mean Abs Error: $(toscientific(epoch_mean_abs_error))")
-    @info("Max Abs Error: $(toscientific(epoch_max_abs_error))")
-    @info("Min Abs Error: $(toscientific(epoch_min_abs_error))")
-    @info("Total Abs Error: $(toscientific(epoch_total_abs_error))")
-    @info("Mean Relative Estimation Error: $(toscientific(mean_estimation_error))")
+    @info("Mean Abs Error: $(toscientific(epoch_mean_abs_error)) | Max Abs Error: $(toscientific(epoch_max_abs_error)) | Min Abs Error: $(toscientific(epoch_min_abs_error)) | Mean Relative Estimation Error: $(toscientific(mean_estimation_error))")
     return epoch_mean_abs_error, epoch_max_abs_error, epoch_min_abs_error, epoch_total_abs_error, mean_estimation_error, epoch_calibration_model
 
 end
@@ -81,7 +77,7 @@ function _get_randomly_sampled_true_pred_distances(true_distance_matrix::Matrix,
 end
 
 function _get_nn_sampled_true_pred_distances(id_seq_data_map::Dict, true_distance_matrix::Matrix, predicted_distance_matrix::Matrix, n::Int64, est_error_n::Int64, denorm_factor::Float64; nn_start_index::Int64=2)
-    @info("Getting sampled true/pred distances")
+    # @info("Getting sampled true/pred distances")
     numNNsPerSample = 5
 
     pred_distance_array = []
@@ -182,10 +178,7 @@ function evaluate_model(dataset_helper, embedding_model::Flux.Chain, denorm_fact
     end
 
     # Log results
-    @info("Time to embed sequences: $(round(embed_sequence_time))s")
-    @info("Time to compute pred distance matrix: $(round(time_get_pred_dist_mat))s")
-    @info("Time to get recall at K: $(round(time_get_recall_at_k))s")
-    @info("Time to get error estimation: $(round(time_get_estimation_error))s")
+    @info("Validation time results | Embed time: $(round(embed_sequence_time))s | Pred distance matrix time: $(round(time_get_pred_dist_mat))s | Calculate recall time: $(round(time_get_recall_at_k))s | Error Est time: $(round(time_get_estimation_error))s")
     return epoch_mean_abs_error, epoch_max_abs_error, epoch_min_abs_error, epoch_total_abs_error, mean_estimation_error, epoch_recall_dict, epoch_calibration_model
 end
 
@@ -265,7 +258,7 @@ function get_top_t_recall_at_k(plot_save_path::String, identifier::String,
     # TODO Randomly sample the IDs?
     nn_start_index = 2
     num_samples = Int64(min(num_samples, n_sequences))
-    @info("Obtaining recall for $(length(kvalues)) k values of range $(kStart):$(kEnd):$(kStep)")
+    # @info("Obtaining recall for $(length(kvalues)) k values of range $(kStart):$(kEnd):$(kStep)")
 
     # epoch recall at k
     epoch_recall_dict = epoch_recall_at_k.recall_at_k_dict
