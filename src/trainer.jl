@@ -137,7 +137,7 @@ function traininghelper(experimentParams)
 
         @info("Beginning training on $(args.NUM_EPOCHS) epochs...")
 
-        nbs = args.NUM_BATCHES
+        nbs = args.NUM_BATCHES_PER_EPOCH
         # Get initial scaling for epoch
         l_reg, r_reg = Models.get_loss_scaling(0, args.LOSS_STEPS_DICT, args.L0rank, args.L0emb)
 

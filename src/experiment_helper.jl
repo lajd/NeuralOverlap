@@ -20,8 +20,8 @@ using NumericIO
     USE_SYNTHETIC_DATA::Bool = true
     ## Simulated sequence dataset
     USE_SEQUENCE_DATA::Bool = false
-    TRAIN_EVAL_FASTQ_FILEPATH = "data/raw_data/simulated_reads/sars_cov_2/train_R1.fastq"
-    INFERENCE_FASTQ_FILEPATH = "data/raw_data/simulated_reads/acanthamoeba_castellanii_mamavirus/infer_R1.fastq"
+    TRAIN_EVAL_FASTQ_FILEPATH = "data/raw_data/simulated_reads/acanthamoeba_castellanii_mamavirus/train_R1.fastq"
+    INFERENCE_FASTQ_FILEPATH = "data/raw_data/simulated_reads/acanthamoeba_castellanii_mamavirus/train_R1.fastq"#"data/raw_data/simulated_reads/megavirus_chiliensis/infer_R1.fastq"
     # Sequences
     ## Alphabet for genomic data
     ALPHABET::Vector{Char} = ['A';'T';'C';'G']
@@ -113,7 +113,7 @@ using NumericIO
     )
 
     # Compute num batches such that, on average, each sequence will be used once
-    NUM_BATCHES::Int64 = 512
+    NUM_BATCHES_PER_EPOCH::Int64 = 512
 
     USE_EXP_DECAY::Bool = true
     EXP_DECAY_EVERY_N_EPOCHS::Int64 = 5
@@ -307,7 +307,7 @@ end
 function get_pipe_cleaner_args()
     return ExperimentParams(
         NUM_EPOCHS=10,
-        NUM_BATCHES=4,  #
+        NUM_BATCHES_PER_EPOCH=4,  #
         MAX_STRING_LENGTH=64,
         BSIZE=64,
         N_INTERMEDIATE_CONV_LAYERS=2,

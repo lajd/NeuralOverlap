@@ -77,7 +77,7 @@ function _get_randomly_sampled_true_pred_distances(true_distance_matrix::Matrix,
 end
 
 function _get_nn_sampled_true_pred_distances(id_seq_data_map::Dict, true_distance_matrix::Matrix, predicted_distance_matrix::Matrix, n::Int64, est_error_n::Int64, denorm_factor::Float64; nn_start_index::Int64=2)
-    # @info("Getting sampled true/pred distances")
+    @info("Getting sampled true/pred distances")
     numNNsPerSample = 5
 
     pred_distance_array = []
@@ -258,7 +258,7 @@ function get_top_t_recall_at_k(plot_save_path::String, identifier::String,
     # TODO Randomly sample the IDs?
     nn_start_index = 2
     num_samples = Int64(min(num_samples, n_sequences))
-    # @info("Obtaining recall for $(length(kvalues)) k values of range $(kStart):$(kEnd):$(kStep)")
+    @debug("Obtaining recall for $(length(kvalues)) k values of range $(kStart):$(kEnd):$(kStep)")
 
     # epoch recall at k
     epoch_recall_dict = epoch_recall_at_k.recall_at_k_dict
@@ -295,7 +295,7 @@ function get_top_t_recall_at_k(plot_save_path::String, identifier::String,
 
     # Save a plot to a new directory
     save_dir = joinpath(plot_save_path, "recall_at_k")
-    plot_title = string("Average recall at K Averaged over: ", num_samples, " sequencesWith dataset size: ", n_sequences)
+    plot_title = string("Average recall at K\nAveraged over: ", num_samples, " sequences\nWith dataset size: ", n_sequences)
     mkpath(save_dir)
     fig = plot(kvalues, [avg_epoch_recall_dict[i] for i in [1, 5, 10, 25, 50, 100]],
      label=["top1Recall" "top5Recall" "top10Recall" "top25Recall" "top50Recall" "top100Recall"],

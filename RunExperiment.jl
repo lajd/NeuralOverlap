@@ -16,12 +16,12 @@ using .NeuralOverlap: train_eval_test, infer
 function main()::Nothing
     experiment_args = ExperimentParams(
         # Dataset size
-        NUM_TRAIN_EXAMPLES=5000,
+        NUM_TRAIN_EXAMPLES=10000,
         NUM_EVAL_EXAMPLES=5000,
-        NUM_TEST_EXAMPLES=5000,
-        MAX_INFERENCE_SAMPLES=5000,
-        NUM_BATCHES=32,
-        NUM_EPOCHS=20,
+        NUM_TEST_EXAMPLES=10000,
+        MAX_INFERENCE_SAMPLES=50000,
+        NUM_BATCHES_PER_EPOCH=128,
+        NUM_EPOCHS=10,
         USE_SYNTHETIC_DATA = false,
         USE_SEQUENCE_DATA = true,
         # Models

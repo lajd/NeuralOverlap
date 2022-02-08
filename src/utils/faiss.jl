@@ -59,7 +59,10 @@ function get_faiss_index(args; quantize::Bool=false, d::Int64=128, nlist::Int64=
     return index
 end
 
-function create_knn_index(args, model::Flux.Chain,  batch_sequence_iterator::Channel{Any}, num_batches::Int64; quantize::Bool=false, use_gpu::Bool = false)
+function create_knn_index(
+    args, model::Flux.Chain,  batch_sequence_iterator::Channel{Any},
+    num_inference_sequences::Int64; quantize::Bool=false,
+    use_gpu::Bool = false)
 
     # TODO: Get this from args
     faiss_train_size = 5000
@@ -91,7 +94,7 @@ function create_knn_index(args, model::Flux.Chain,  batch_sequence_iterator::Cha
     map_faiss_id_to_sequence_id = Dict()
 
     LOG_EVERY = 10000
-    @info("Accumulating training vectors...")
+    @info("Accumulating vectors...")
 
     faiss_sequence_index = 0
     sequence_index = 1  # Julia sequence index
@@ -155,23 +158,27 @@ end
 
 function create_embedding_index(
         args, model::Flux.Chain, batch_sequence_iterator::Channel{Any},
-        num_batches::Int64; quantize::Bool=true,
-        use_gpu::Bool=false, faiss_batch_size::Int64=4096, faiss_train_size::Union{Int64, Nothing}=nothing
+        num_inference_sequences::Int64; quantize::Bool=false,
+        use_gpu::Bool=false, faiss_batch_size::Int64=4096,
+        faiss_train_size::Union{Int64, Nothing}=nothing
     )
 
     # By default, use 10% of the data
     if faiss_train_size == nothing
-        faiss_train_size = ceil(args.BSIZE * num_batches * 0.1)
+        faiss_train_size = Int(ceil(num_inference_sequences * 0.2))
     end
 
     faiss_index = get_faiss_index(args, quantize=quantize, use_gpu=use_gpu)
 
-    @info("Accumulating training vectors in Faiss index...")
+    @info("Accumulating vectors in Faiss index prior to index training...")
     faiss_is_trained = false
     training_vectors = []
-    p = Progress(num_batches)
+    p = Progress(num_inference_sequences)
     for batch_sequence in batch_sequence_iterator
-        one_hot_batch = one_hot_encode_sequence_batch(batch_sequence, args.MAX_STRING_LENGTH, args.BSIZE, args.ALPHABET_SYMBOLS;do_padding=true)
+        one_hot_batch = one_hot_encode_sequence_batch(
+            batch_sequence, args.MAX_STRING_LENGTH, args.BSIZE,
+            args.ALPHABET_SYMBOLS;do_padding=true
+        )
         X = permutedims(one_hot_batch, (3, 2, 1))
         X = reshape(X, :, 1, args.BSIZE)
 
@@ -183,7 +190,6 @@ function create_embedding_index(
         numVectors = length(training_vectors)*args.BSIZE
 
         if (length(training_vectors)*args.BSIZE) > faiss_train_size && faiss_is_trained == false
-            # Size (128, 512*N)
             add_embeddings_to_index!(args, training_vectors, faiss_index, do_train_index=true)
             faiss_is_trained = true
             training_vectors = []
@@ -194,7 +200,7 @@ function create_embedding_index(
             training_vectors = []
         end
 
-        # Incrememt progressbar
+        # Increment progressbar
         next!(p)
     end
 
@@ -206,7 +212,7 @@ function create_embedding_index(
     return faiss_index
 end
 
-write_faiss_index(args, faiss_index) = faiss.write_index(
+write_faiss_index(args, faiss_index, identifier::String) = faiss.write_index(
     faiss_index,
-    joinpath(args.EXPERIMENT_DIR, "inference_index.faiss")
+    joinpath(args.EXPERIMENT_DIR, string(identifier, "_index.faiss"))
 )

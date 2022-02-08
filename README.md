@@ -58,24 +58,28 @@ Prepare the training data
 RELATIVE_RAW_GENOME_PATH=data/raw_data/full_genomes
 RELATIVE_SIMULATED_READS=data/raw_data/simulated_reads
 
-# Generate 10000 training reads samples from the sars-cov-2 genome
-mkdir -p $RELATIVE_SIMULATED_READS/sars_cov_2
+# Generate 20000 training reads samples from the Acanthamoeba castellanii mamavirus genome
+
+GENOME_NAME=acanthamoeba_castellanii_mamavirus
+mkdir -p $RELATIVE_SIMULATED_READS/$GENOME_NAME
 
 iss generate \
-  --genomes $RELATIVE_RAW_GENOME_PATH/sars_cov_2.fa \
+  --genomes $RELATIVE_RAW_GENOME_PATH/$GENOME_NAME.fa \
   --model miseq \
-  --output $RELATIVE_SIMULATED_READS/sars_cov_2/train \
-  -n 10000
+  --output $RELATIVE_SIMULATED_READS/$GENOME_NAME/train \
+  -n 20000
 
-# Generate 100000 training reads samples from the acanthamoeba castellanii mamavirus genome
-mkdir -p $RELATIVE_SIMULATED_READS/acanthamoeba_castellanii_mamavirus
+# Generate 50000 training reads sampled from the Megavirus chiliensis genome
+
+GENOME_NAME=megavirus_chiliensis
+mkdir -p $RELATIVE_SIMULATED_READS/$GENOME_NAME
 
 
 iss generate \
-  --genomes $RELATIVE_RAW_GENOME_PATH/acanthamoeba_castellanii_mamavirus.fa \
+  --genomes $RELATIVE_RAW_GENOME_PATH/$GENOME_NAME.fa \
   --model miseq \
-  --output $RELATIVE_SIMULATED_READS/acanthamoeba_castellanii_mamavirus/infer \
-  -n 100000
+  --output $RELATIVE_SIMULATED_READS/$GENOME_NAME/infer \
+  -n 50000
 ```
 
 ## Run the example experiment
@@ -97,7 +101,7 @@ function main()
         NUM_EVAL_EXAMPLES=5000,
         NUM_TEST_EXAMPLES=5000,
         MAX_INFERENCE_SAMPLES=5000,
-        NUM_BATCHES=32,
+        NUM_BATCHES_PER_EPOCH=32,
         NUM_EPOCHS=1,
         USE_SYNTHETIC_DATA = false,
         USE_SEQUENCE_DATA = true,

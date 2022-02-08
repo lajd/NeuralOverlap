@@ -49,7 +49,7 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
      inference_sequences = get_inference_sequences(args, is_testing)
 
      # Number of batches in the queue
-     num_batches = Int64(ceil(length(inference_sequences) / args.BSIZE))
+     num_inference_sequences = length(inference_sequences)
 
      function batch_sequence_producer(args, chnl::Channel)
         i = 1
@@ -169,7 +169,7 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
             end
         end
 
-        @info("Time to find approximate NNs is $(round(time_finding_approx_nns))")
+        @info("Time to find approximate NNs is $(round(time_finding_approx_nns))s")
 
         if use_mmap_arrays == true
             ids_mmap, distances_mmap = approximate_nns.get_predicted_nn_arrays()
@@ -200,7 +200,7 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
                 true_nn_map[i - 1] = Dict("topKNN" => nns, "distances" => distances)  # Index the same as FAISS indexed
             end
         end
-        @info("Time to find true NNs is $(round(timeFindingTrueNNs))")
+        @info("Time to find true NNs is $(round(timeFindingTrueNNs))s")
         return true_nn_map
     end
 
@@ -213,7 +213,7 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
 
         faiss_index = Utils.create_embedding_index(
             args, embedding_model, batch_sequence_iterator,
-            num_batches, quantize=quantize_faiss_index
+            num_inference_sequences, quantize=quantize_faiss_index
         )
 
         # After training and adding vectors, make a direct map if the index allows for it
@@ -230,9 +230,16 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
 
         # Write the faiss index to disk
         @info("Writing the inference faiss index to dist...")
+        if is_testing == true
+            faiss_index_id = "testing"
+        else
+            faiss_index_id = "inference"
+        end
+
         Utils.write_faiss_index(
             args,
             faiss_index,
+            faiss_index_id
         )
 
         return predicted_nn_map, faiss_index
@@ -247,7 +254,7 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
         epoch_recall_dict = Utils.get_top_t_recall_at_k(
             args.PLOTS_SAVE_DIR, "testing", length(true_nn_map), numNN=1000,
             kStart=1, kEnd=1001, kStep=100; nn_start_index=2,
-            trueid_seq_data_map=true_nn_map,
+            true_id_seq_data_map=true_nn_map,
             predicted_id_seq_data_map=predicted_nn_map, num_samples=1000
         )
 
