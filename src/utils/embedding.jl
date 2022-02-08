@@ -30,8 +30,6 @@ function embed_sequence_data(dataset_helper, id_seq_data_map::Dict, embedding_mo
     Xarray = []
     Earray = []
 
-
-#         formattedXArray = []
     for k in ProgressBar(1:n)
         v = id_seq_data_map[k]
         push!(Xarray, v["oneHotSeq"])

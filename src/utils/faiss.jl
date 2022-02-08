@@ -96,9 +96,6 @@ function create_knn_index(
     LOG_EVERY = 10000
     @info("Accumulating vectors...")
 
-    faiss_sequence_index = 0
-    sequence_index = 1  # Julia sequence index
-
     model = model |> DEVICE
 
     for batch_sequence in batch_sequence_iterator
@@ -143,7 +140,7 @@ end
 
 
 function add_embeddings_to_index!(args, embeddings_array::Array, index; do_train_index::Bool=false)
-    # Size (128, 512*N)
+
     training_vector_matrix = cat(embeddings_array..., dims=2) |> Flux.cpu
     convert(Array, training_vector_matrix)
     @assert size(training_vector_matrix)[1] == args.EMBEDDING_DIM size(training_vector_matrix)[1]
@@ -165,7 +162,7 @@ function create_embedding_index(
 
     # By default, use 10% of the data
     if faiss_train_size == nothing
-        faiss_train_size = Int(ceil(num_inference_sequences * 0.2))
+        faiss_train_size = Int(ceil(num_inference_sequences * 0.1))
     end
 
     faiss_index = get_faiss_index(args, quantize=quantize, use_gpu=use_gpu)
@@ -173,11 +170,11 @@ function create_embedding_index(
     @info("Accumulating vectors in Faiss index prior to index training...")
     faiss_is_trained = false
     training_vectors = []
-    p = Progress(num_inference_sequences)
+    p = Progress(Int(ceil(num_inference_sequences//args.BSIZE)))
     for batch_sequence in batch_sequence_iterator
         one_hot_batch = one_hot_encode_sequence_batch(
             batch_sequence, args.MAX_STRING_LENGTH, args.BSIZE,
-            args.ALPHABET_SYMBOLS;do_padding=true
+            args.ALPHABET_SYMBOLS, do_padding=true
         )
         X = permutedims(one_hot_batch, (3, 2, 1))
         X = reshape(X, :, 1, args.BSIZE)

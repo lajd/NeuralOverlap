@@ -21,7 +21,7 @@ using NumericIO
     ## Simulated sequence dataset
     USE_SEQUENCE_DATA::Bool = false
     TRAIN_EVAL_FASTQ_FILEPATH = "data/raw_data/simulated_reads/acanthamoeba_castellanii_mamavirus/train_R1.fastq"
-    INFERENCE_FASTQ_FILEPATH = "data/raw_data/simulated_reads/acanthamoeba_castellanii_mamavirus/train_R1.fastq"#"data/raw_data/simulated_reads/megavirus_chiliensis/infer_R1.fastq"
+    INFERENCE_FASTQ_FILEPATH = "data/raw_data/simulated_reads/megavirus_chiliensis/infer_R1.fastq"
     # Sequences
     ## Alphabet for genomic data
     ALPHABET::Vector{Char} = ['A';'T';'C';'G']

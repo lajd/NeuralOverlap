@@ -64,7 +64,7 @@ module Dataset
             end
         end
 
-        timeCreateid_seq_data_map = @elapsed begin
+        time_create_id_seq_data_map = @elapsed begin
             id_seq_data_map = Dict()
 
             numNN = min(n_sequences, numNN)

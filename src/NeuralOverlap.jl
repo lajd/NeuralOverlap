@@ -56,12 +56,4 @@ module NeuralOverlap
         )
     end
 
-    function read_ids_and_distances(args)
-
-    end
-
-    function read_inference_faiss_index(args)
-    end
-
-
 end

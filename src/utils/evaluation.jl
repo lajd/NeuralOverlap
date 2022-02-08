@@ -149,7 +149,6 @@ function evaluate_model(dataset_helper, embedding_model::Flux.Chain, denorm_fact
 
     @assert size(Etensor)[2] == n
 
-
     time_get_pred_dist_mat = @elapsed begin
         # Obtain inferred/predicted distance matrix
         predicted_distance_matrix=pairwise_distance(Etensor, method)
@@ -162,7 +161,7 @@ function evaluate_model(dataset_helper, embedding_model::Flux.Chain, denorm_fact
     time_get_recall_at_k = @elapsed begin
         # Obtain the recall dictionary for each T value, for each K value
         epoch_recall_dict = get_top_t_recall_at_k(plot_save_path, identifier, n, numNN=numNN,
-            kStart=kStart, kEnd=kEnd, kStep=kStep,trueid_seq_data_map=id_seq_data_map,
+            kStart=kStart, kEnd=kEnd, kStep=kStep, true_id_seq_data_map=id_seq_data_map,
             predicted_distance_matrix=predicted_distance_matrix,
         )
     end
@@ -245,10 +244,9 @@ end
 function get_top_t_recall_at_k(plot_save_path::String, identifier::String,
     n_sequences::Int64; numNN::Int64=1000,
     kStart::Int64=1, kEnd::Int64=1001, kStep::Int64=100, nn_start_index::Int64=2,
-    true_distance_matrix=nothing, trueid_seq_data_map=nothing, predicted_distance_matrix=nothing,
+    true_distance_matrix=nothing, true_id_seq_data_map=nothing, predicted_distance_matrix=nothing,
     predicted_id_seq_data_map=nothing, num_samples::Int64=1000, index_start::Int64=1
 )
-    # TODO: This is very slow
     @info("Getting top T recall at K")
 
     # Get k-nns and recall
@@ -267,7 +265,7 @@ function get_top_t_recall_at_k(plot_save_path::String, identifier::String,
     for id in ProgressBar(1:num_samples)
         # Get true/pred NNs for this sequence
         predicted_knns = _get_nns(id, predicted_id_seq_data_map, predicted_distance_matrix, nn_start_index, numNN)
-        actual_knns = _get_nns(id, trueid_seq_data_map, true_distance_matrix, nn_start_index, numNN)
+        actual_knns = _get_nns(id, true_id_seq_data_map, true_distance_matrix, nn_start_index, numNN)
         @assert length(predicted_knns) == length(actual_knns) (length(predicted_knns), length(actual_knns))
 
         for kidx in 1:length(kvalues)

@@ -48,7 +48,6 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
      # TODO: Don't load all sequences into memory
      inference_sequences = get_inference_sequences(args, is_testing)
 
-     # Number of batches in the queue
      num_inference_sequences = length(inference_sequences)
 
      function batch_sequence_producer(args, chnl::Channel)
@@ -115,12 +114,14 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
         get_predicted_nn_dict() = predicted_nn_map
 
         function update!(faiss_id::Int64, julia_id::Int64, ids::Array, distances::Array)::Nothing
+            nn_ids = ids[julia_id, 1:end]
+            nn_distances = distances[julia_id, 1:end]
             if use_mmap_arrays == true
                 # Note: mmapped arrays index starts at 1
-                predicted_nn_map_top_knn.mmarray[faiss_id + 1, 1:end] = ids[julia_id, 1:end]
-                predicted_nn_map_distances.mmarray[faiss_id + 1, 1:end] = distances[julia_id, 1:end]
+                predicted_nn_map_top_knn.mmarray[faiss_id + 1, 1:end] = nn_ids
+                predicted_nn_map_distances.mmarray[faiss_id + 1, 1:end] = nn_distances
             else
-                predicted_nn_map[faiss_id] = Dict("topKNN" => ids, "distances" => distances)
+                predicted_nn_map[faiss_id] = Dict("topKNN" => nn_ids, "distances" => nn_distances)
             end
             return nothing
         end
@@ -144,7 +145,7 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
 
             reconstructVectorID = 0
             faiss_vector_id_pointer = 0
-            for _ in ProgressBar(0:n_sequences - 1)
+            for reconstructVectorID in ProgressBar(0:n_sequences - 1)
                 embedding = faiss_index.reconstruct(reconstructVectorID).reshape(1, -1)
                 push!(batch_array, embedding)
                 reconstructVectorID += 1
