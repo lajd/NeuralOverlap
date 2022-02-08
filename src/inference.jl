@@ -13,6 +13,7 @@ using LinearAlgebra
 using Zygote: gradient, @ignore
 using Parameters
 using ProgressBars
+using Plots
 
 using JLD2: @load
 using PythonCall
@@ -93,14 +94,14 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
             predicted_nn_map_top_knn = Utils.mmap_array(
                 n_sequences,
                 k_nns,
-                path=joinpath(args.INFERENCE_MMAP_SAVE_DIR, "nn_ids.bin"),
+                path=joinpath(args.INFERENCE_MMAP_SAVE_DIR, "nn_ids_mmap.bin"),
                 matrix_type=Int64,
                 overwrite=true,
             )
             predicted_nn_map_distances = Utils.mmap_array(
                 n_sequences,
                 k_nns,
-                path=joinpath(args.INFERENCE_MMAP_SAVE_DIR, "distances.bin"),
+                path=joinpath(args.INFERENCE_MMAP_SAVE_DIR, "distances_mmap.bin"),
                 matrix_type=Float64,
                 overwrite=true
             )
@@ -211,23 +212,27 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
         trainmode!(embedding_model, false)
 
         batch_sequence_iterator = Channel( (channel) -> batch_sequence_producer(args, channel), 1)
-
-        faiss_index = Utils.create_embedding_index(
-            args, embedding_model, batch_sequence_iterator,
-            num_inference_sequences, quantize=quantize_faiss_index
-        )
+        
+        time_to_create_embedding_index = @elapsed begin
+            faiss_index = Utils.create_embedding_index(
+                args, embedding_model, batch_sequence_iterator,
+                num_inference_sequences, quantize=quantize_faiss_index
+            )
+        end
 
         # After training and adding vectors, make a direct map if the index allows for it
         if hasproperty(faiss_index, :make_direct_map)
             faiss_index.make_direct_map()
         end
 
-        predicted_nn_map = get_approximate_nn_overlap(
-            faiss_index,
-            length(inference_sequences),
-            k=num_neighbours,
-            use_mmap_arrays=~is_testing  # Mmap arrays when doing inference only
-        )
+        time_finding_approx_nns = @elapsed begin
+            predicted_nn_map = get_approximate_nn_overlap(
+                faiss_index,
+                length(inference_sequences),
+                k=num_neighbours,
+                use_mmap_arrays=~is_testing  # Mmap arrays when doing inference only
+            )
+        end
 
         # Write the faiss index to disk
         @info("Writing the inference faiss index to dist...")
@@ -243,14 +248,16 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
             faiss_index_id
         )
 
-        return predicted_nn_map, faiss_index
+        return predicted_nn_map, faiss_index, time_to_create_embedding_index, time_finding_approx_nns
     end
 
     function test()
         # Test is inference with evaluation
-        predicted_nn_map, faiss_index = infer()
+        predicted_nn_map, faiss_index, t_index, t_approx_nns = infer()
 
-        true_nn_map = get_true_nn_overlap(k=num_neighbours)
+        t_true_nns = @elapsed begin
+            true_nn_map = get_true_nn_overlap(k=num_neighbours)
+        end
 
         epoch_recall_dict = Utils.get_top_t_recall_at_k(
             args.PLOTS_SAVE_DIR, "testing", length(true_nn_map), numNN=1000,
@@ -258,6 +265,11 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
             true_id_seq_data_map=true_nn_map,
             predicted_id_seq_data_map=predicted_nn_map, num_samples=1000
         )
+
+        fig = bar(["trueNN time", "faissIndex time", "predNN time"], [t_true_nns,t_index,t_approx_nns], xlabel="Time plot", ylabel="Time (s)", title="Compute times")
+
+        subplots = plot(fig, layout = (1, 3), legend = false)
+        savefig(subplots, joinpath(args.PLOTS_SAVE_DIR, string("testing_time_results",  ".png")))
 
         return predicted_nn_map, true_nn_map, epoch_recall_dict, faiss_index
     end

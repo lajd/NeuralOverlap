@@ -126,27 +126,28 @@ using NumericIO
     # Experiment
     ################
     EXPERIMENT_NAME::String = string_from_parameters([now()])
-    EXPERIMENT_DIR::String = joinpath("data/experiments", EXPERIMENT_NAME)
-    MODEL_SAVE_DIR::String = joinpath(EXPERIMENT_DIR, "saved_models")
-    DATASET_SAVE_PATH::String = joinpath(EXPERIMENT_DIR, "dataset.jld")
-    PLOTS_SAVE_DIR::String = joinpath(EXPERIMENT_DIR, "saved_plots")
-    CONSTANTS_SAVE_PATH::String = joinpath(EXPERIMENT_DIR, "constants.txt")
-    INFERENCE_MMAP_SAVE_DIR::String = joinpath(EXPERIMENT_DIR, "saved_plots")
+    LATEST_EXPERIMENT_DIR::String = joinpath("data/latest_experiment")
+    ARCHIVAL_EXERIMENT_DIR::String = joinpath("data/experiments", EXPERIMENT_NAME)
+    MODEL_SAVE_DIR::String = joinpath(LATEST_EXPERIMENT_DIR, "saved_models")
+    DATASET_SAVE_PATH::String = joinpath(LATEST_EXPERIMENT_DIR, "dataset.jld")
+    PLOTS_SAVE_DIR::String = joinpath(LATEST_EXPERIMENT_DIR, "saved_plots")
+    CONSTANTS_SAVE_PATH::String = joinpath(LATEST_EXPERIMENT_DIR, "constants.txt")
+    INFERENCE_MMAP_SAVE_DIR::String = joinpath(LATEST_EXPERIMENT_DIR, "saved_plots")
 end
 
 # Create the directories for saving the model checkpoints and plots
 function create_experiment_dirs!(args)
-    mkpath(args.EXPERIMENT_DIR)
+    mkpath(args.LATEST_EXPERIMENT_DIR)
     mkpath(args.MODEL_SAVE_DIR)
     mkpath(args.PLOTS_SAVE_DIR)
 end
 
 function save_experiment_args!(args)
-    save_path = joinpath(args.EXPERIMENT_DIR, "args.txt")
+    save_path = joinpath(args.LATEST_EXPERIMENT_DIR, "args.txt")
     open(save_path, "a") do f
         write(f, string(args))
     end
-    args_save_file = joinpath(args.EXPERIMENT_DIR, "args.jld2")
+    args_save_file = joinpath(args.LATEST_EXPERIMENT_DIR, "args.jld2")
     @save args_save_file args=args
 end
 
@@ -201,7 +202,7 @@ function experiment_meter()
     epoch_timing_dict = Dict(
         "time_spent_fetching_data" => 0.,
         "time_spent_forward" => 0.,
-        "time_spend_backward" => 0.
+        "time_spend_backward" => 0.,
     )
 
     epoch_gs_stats = Dict(
@@ -250,8 +251,8 @@ function experiment_meter()
 
 
     function get_epoch_timing_results()::Array{Float64}
-        n = epoch_batch_counter
-        return [r/n for r in (epoch_timing_dict["time_spent_fetching_data"], epoch_timing_dict["time_spent_forward"], epoch_timing_dict["time_spend_backward"])]
+        d = epoch_timing_dict
+        return [d["time_spent_fetching_data"], d["time_spent_forward"], d["time_spend_backward"]]
     end
 
     function get_epoch_gs_stats()::Array{Float64}
@@ -291,11 +292,10 @@ function experiment_meter()
         evaluation_number += 1
     end
 
-    function log_epoch_results!(args, epoch, l_reg, r_reg)
+    function log_epoch_results!(args, epoch::Int64, l_reg::Float64, r_reg::Float64, epoch_total_time::Float64)
         losses = [toscientific(x) for x in get_experiment_losses()]
         timing = [toscientific(x) for x in get_epoch_timing_results()]
-        @info("Epoch $(epoch) training results | Experiment dir: $(args.EXPERIMENT_DIR) | Average loss sum: $(losses[1]), Average Rank loss: $(losses[2]), Average Embedding loss $(losses[3]) | l_reg: $(toscientific(l_reg)), r_reg: $(toscientific(r_reg))")
-        @info("DataFetchTime $(timing[1]), TimeForward $(timing[2]), TimeBackward $(timing[3])")
+        @info("Epoch $(epoch): | AvgTotalLoss: $(losses[1]), AvgRankLoss: $(losses[2]), AvgEmbLoss: $(losses[3]) | l_reg: $(toscientific(l_reg)) | r_reg: $(toscientific(r_reg)) | DataFetchTime $(timing[1])s | TimeForward $(timing[2])s | TimeBackward $(timing[3])s | TotalEpochTime $(toscientific(epoch_total_time))s")
     end
 
     () -> (new_epoch!;add_batch_loss!;store_epoch_training_losses!;get_experiment_losses;get_epoch_timing_results;add_experiment_training_error!;add_experiment_validation_error!;
@@ -335,4 +335,10 @@ function get_pipe_cleaner_args()
         USE_SYNTHETIC_DATA=false,
         USE_SEQUENCE_DATA=true,
     )
+end
+
+function archive_experiment(args)
+    if isdir(args.LATEST_EXPERIMENT_DIR)
+        mv(args.LATEST_EXPERIMENT_DIR, args.ARCHIVAL_EXERIMENT_DIR)
+    end
 end

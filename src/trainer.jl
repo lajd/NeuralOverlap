@@ -194,7 +194,6 @@ function traininghelper(experimentParams)
                 # End of epoch
                 # Store training results and log
                 meter.store_epoch_training_losses!()
-                meter.log_epoch_results!(args, epoch, l_reg, r_reg)
 
                 if args.DEBUG
                     @info("maxGS: %s, minGS: %s, meanGS: %s", meter.get_epoch_gs_stats())
@@ -212,8 +211,7 @@ function traininghelper(experimentParams)
                     @info("Total Evaluation time: $(round(evaluateTime))s")
                 end
             end
-            @info("Total epoch time is $(round(epoch_total_time))s")
-
+            meter.log_epoch_results!(args, epoch, l_reg, r_reg, epoch_total_time)
         end
 
         return model

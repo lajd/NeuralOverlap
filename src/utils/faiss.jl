@@ -211,5 +211,5 @@ end
 
 write_faiss_index(args, faiss_index, identifier::String) = faiss.write_index(
     faiss_index,
-    joinpath(args.EXPERIMENT_DIR, string(identifier, "_index.faiss"))
+    joinpath(args.LATEST_EXPERIMENT_DIR, string(identifier, "_index.faiss"))
 )

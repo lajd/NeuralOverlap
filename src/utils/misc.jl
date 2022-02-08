@@ -97,7 +97,6 @@ function mmap_array(m::Int64, n::Int64; path::String="/tmp/mmap.bin", overwrite:
 
 end
 
-
 anynan(x) = any(y -> any(isnan, y), x)
 
 

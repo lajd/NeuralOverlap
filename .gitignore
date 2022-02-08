@@ -14,6 +14,15 @@
 # Plots
 *.png
 
+# mmaps
+*.bin
+
+# Faiss indices
+*.faiss
+
+# Models
+*.jld2
+
 data/raw_data/simulated_reads
 data/experiments
 deprecated

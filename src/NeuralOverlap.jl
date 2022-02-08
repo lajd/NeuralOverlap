@@ -44,7 +44,10 @@ module NeuralOverlap
         return predicted_nn_map, faiss_index
     end
 
-    function run()
+    function run_experiment(experiment_args)::Nothing
+        # Archive the most recent experiment if it exists
+        archive_experiment(experiment_args)
+
         # Train/eval/test
         trained_embedding_model, distance_calibration_model,
         predicted_nn_map, true_nn_map, epoch_recall_dict,
@@ -52,8 +55,13 @@ module NeuralOverlap
 
         # Inference
         predicted_nn_map, faiss_index = infer(
-            experiment_args, trained_embedding_model, distance_calibration_model
+            experiment_args,
+            trained_embedding_model,
+            distance_calibration_model,
         )
-    end
 
+        @info("Experiment complete; See the experiment directory for details")
+        @info(joinpath(pwd(), experiment_args.LATEST_EXPERIMENT_DIR))
+        return nothing
+    end
 end

@@ -87,6 +87,14 @@ iss generate \
 ### Run an experiment with custom parameters
 
 ```shell script
+include("src/experiment_helper.jl")
+include("src/utils/Utils.jl")
+include("src/models/Models.jl")
+include("src/dataset/Dataset.jl")
+
+include("src/trainer.jl")
+include("src/inference.jl")
+
 include("src/NeuralOverlap.jl")
 include("src/experiment_helper.jl")
 
@@ -94,22 +102,22 @@ using Flux
 
 using .NeuralOverlap: train_eval_test, infer
 
-function main()
+function main()::Nothing
     experiment_args = ExperimentParams(
         # Dataset size
-        NUM_TRAIN_EXAMPLES=5000,
+        NUM_TRAIN_EXAMPLES=10000,
         NUM_EVAL_EXAMPLES=5000,
-        NUM_TEST_EXAMPLES=5000,
-        MAX_INFERENCE_SAMPLES=5000,
-        NUM_BATCHES_PER_EPOCH=32,
-        NUM_EPOCHS=1,
+        NUM_TEST_EXAMPLES=10000,
+        MAX_INFERENCE_SAMPLES=50000,
+        NUM_BATCHES_PER_EPOCH=128,
+        NUM_EPOCHS=50,
         USE_SYNTHETIC_DATA = false,
         USE_SEQUENCE_DATA = true,
         # Models
         N_READOUT_LAYERS = 1,
         READOUT_ACTIVATION = relu,
         N_INTERMEDIATE_CONV_LAYERS = 3,
-        CONV_ACTIVATION = relu,
+        CONV_ACTIVATION = identity,
         USE_INPUT_BATCHNORM = false,
         USE_INTERMEDIATE_BATCHNORM = true,
         USE_READOUT_DROPOUT = false,
@@ -118,7 +126,7 @@ function main()
         POOLING_METHOD = "mean",
         POOL_KERNEL = 2,
         # Model
-        OUT_CHANNELS = 2,
+        OUT_CHANNELS = 8,
         KERNEL_SIZE = 3,
         EMBEDDING_DIM = 128,
         DISTANCE_METHOD ="l2",
@@ -136,8 +144,38 @@ function main()
         distance_calibration_model,
     )
 
+    @info("Experiment complete; See the experiment directory for details")
+    @info(joinpath(pwd(), experiment_args.EXPERIMENT_DIR))
+    return nothing
 end
 
 main()
 
 ```
+
+
+## Results (example experiment)
+
+
+### Training on the mamavirus genome
+
+##### Training triplet batch distances
+![Training triplet batch distances](data/latest_experiment/saved_plots/triplet_batch_distances.png)
+
+##### Training loss
+![Training loss](data/latest_experiment/saved_plots/training_losses.png)
+
+##### Training recall
+![Training recall](data/latest_experiment/saved_plots/recall_at_k/training_epoch_50.png)
+
+##### Validation recall
+![Validation recall](data/latest_experiment/saved_plots/recall_at_k/evaluation_epoch_50.png)
+
+
+### Testing on the megavirus genome
+
+##### Recall
+![Test recall](data/latest_experiment/saved_plots/recall_at_k/testing.png)
+
+##### Timing results
+![Test timing results](data/latest_experiment/saved_plots/testing_time_results.png)
