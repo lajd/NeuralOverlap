@@ -1,0 +1,65 @@
+ExperimentParams
+  DEBUG: Bool false
+  USE_SYNTHETIC_DATA: Bool false
+  USE_SEQUENCE_DATA: Bool true
+  TRAIN_EVAL_FASTQ_FILEPATH: String "data/raw_data/simulated_reads/acanthamoeba_castellanii_mamavirus/train_R1.fastq"
+  INFERENCE_FASTQ_FILEPATH: String "data/raw_data/simulated_reads/megavirus_chiliensis/infer_large_R1.fastq"
+  ALPHABET: Array{Char}((4,))
+  ALPHABET_SYMBOLS: Array{Symbol}((4,))
+  ALPHABET_DIM: Int64 4
+  MIN_STRING_LENGTH: Int64 128
+  MAX_STRING_LENGTH: Int64 128
+  KNN_TRIPLET_POS_EXAMPLE_SAMPLING_METHOD: String "ranked"
+  RATIO_OF_RANDOM_SAMPLES: Float64 0.015
+  SIMILARITY_MIN: Float64 0.3
+  SIMILARITY_MAX: Float64 0.95
+  N_READOUT_LAYERS: Int64 1
+  READOUT_ACTIVATION: relu (function of type typeof(relu))
+  N_INTERMEDIATE_CONV_LAYERS: Int64 3
+  CONV_ACTIVATION: identity (function of type typeof(identity))
+  USE_INPUT_BATCHNORM: Bool false
+  USE_INTERMEDIATE_BATCHNORM: Bool true
+  USE_READOUT_DROPOUT: Bool false
+  CONV_ACTIVATION_LAYER_MOD: Int64 2
+  POOLING_METHOD: String "mean"
+  POOL_KERNEL: Int64 2
+  OUT_CHANNELS: Int64 8
+  KERNEL_SIZE: Int64 3
+  EMBEDDING_DIM: Int64 128
+  DISTANCE_METHOD: String "l2"
+  L2_NORMALIZE_EMBEDDINGS: Bool true
+  DISTANCE_MATRIX_NORM_METHOD: String "max"
+  NUM_TRAIN_EXAMPLES: Int64 10000
+  NUM_EVAL_EXAMPLES: Int64 5000
+  NUM_TEST_EXAMPLES: Int64 10000
+  MAX_INFERENCE_SAMPLES: Int64 10000
+  EST_ERROR_N: Int64 1000
+  BSIZE: Int64 256
+  NUM_EPOCHS: Int64 50
+  NUM_NNS_EXTRACTED: Int64 1000
+  K_START: Int64 1
+  K_END: Int64 1001
+  K_STEP: Int64 10
+  NUM_NNS_SAMPLED_DURING_TRAINING: Int64 100
+  FAISS_TRAIN_SIZE: Int64 5000
+  LR: Float64 0.01
+  GRADIENT_CLIP_VALUE: Nothing nothing
+  EVAL_EVERY_N_EPOCHS: Int64 5
+  L0rank: Float64 1.0
+  L0emb: Float64 0.1
+  _N_LOSS_STEPS: Int32 10
+  LOSS_STEPS_DICT: Dict{Int64, Tuple{Float64, Float64}}
+  NUM_BATCHES_PER_EPOCH: Int64 128
+  USE_EXP_DECAY: Bool true
+  EXP_DECAY_EVERY_N_EPOCHS: Int64 5
+  EXP_DECAY_VALUE: Float64 0.5
+  EXP_DECAY_CLIP: Float64 1.0e-5
+  TERMINATE_ON_NAN: Bool true
+  EXPERIMENT_NAME: String "2022-02-08T22:33:35.356"
+  LATEST_EXPERIMENT_DIR: String "data/latest_experiment"
+  ARCHIVAL_EXERIMENT_DIR: String "data/experiments/2022-02-08T22:33:35.356"
+  MODEL_SAVE_DIR: String "data/latest_experiment/saved_models"
+  DATASET_SAVE_PATH: String "data/latest_experiment/dataset.jld"
+  PLOTS_SAVE_DIR: String "data/latest_experiment/saved_plots"
+  CONSTANTS_SAVE_PATH: String "data/latest_experiment/constants.txt"
+  INFERENCE_MMAP_SAVE_DIR: String "data/latest_experiment/saved_plots"

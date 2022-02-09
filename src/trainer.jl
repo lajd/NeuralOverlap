@@ -39,7 +39,9 @@ function traininghelper(experimentParams)
     function get_dataset_split()
         totalSamples = args.NUM_TRAIN_EXAMPLES + args.NUM_EVAL_EXAMPLES
 
-        all_sequences = Dataset.get_sequences(args, totalSamples)
+        all_sequences = Dataset.get_sequences(
+            args, totalSamples, fastq_filepath=args.TRAIN_EVAL_FASTQ_FILEPATH
+        )
 
         # Randomly split into train/val/test
         shuffle!(all_sequences)

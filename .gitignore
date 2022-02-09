@@ -24,7 +24,6 @@
 *.jld2
 
 data/raw_data/simulated_reads
+data/latest_experiment
 data/experiments
 deprecated
-
-RunExperiment.jl

@@ -247,7 +247,7 @@ function get_top_t_recall_at_k(plot_save_path::String, identifier::String,
     true_distance_matrix=nothing, true_id_seq_data_map=nothing, predicted_distance_matrix=nothing,
     predicted_id_seq_data_map=nothing, num_samples::Int64=1000, index_start::Int64=1
 )
-    @info("Getting top T recall at K")
+    @info("Getting top T recall at K for $(n_sequences) sequences")
 
     # Get k-nns and recall
     kvalues = [k for k in range(kStart, kEnd + 1, step=kStep)]

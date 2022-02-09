@@ -17,7 +17,7 @@ module Dataset
     using Distributions
     using Printf
 
-    function get_sequences(args, n_sequences::Int64)::Array{String}
+    function get_sequences(args, n_sequences::Int64; fastq_filepath::String)::Array{String}
         if args.USE_SYNTHETIC_DATA == true
             sequences = Dataset.generate_synethetic_sequences(
                 n_sequences, args.MAX_STRING_LENGTH,
@@ -28,9 +28,9 @@ module Dataset
             )
         elseif args.USE_SEQUENCE_DATA == true
             sequences = Dataset.read_sequence_data(
+                args,
                 n_sequences,
-                args.MAX_STRING_LENGTH,
-                fastq_filepath=args.TRAIN_EVAL_FASTQ_FILEPATH
+                fastq_filepath=fastq_filepath
             )
         else
             throw("Must provide a valid dataset type")

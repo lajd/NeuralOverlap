@@ -132,7 +132,7 @@ using NumericIO
     DATASET_SAVE_PATH::String = joinpath(LATEST_EXPERIMENT_DIR, "dataset.jld")
     PLOTS_SAVE_DIR::String = joinpath(LATEST_EXPERIMENT_DIR, "saved_plots")
     CONSTANTS_SAVE_PATH::String = joinpath(LATEST_EXPERIMENT_DIR, "constants.txt")
-    INFERENCE_MMAP_SAVE_DIR::String = joinpath(LATEST_EXPERIMENT_DIR, "saved_plots")
+    INFERENCE_MMAP_SAVE_DIR::String = joinpath(LATEST_EXPERIMENT_DIR, "inference_mmaps")
 end
 
 # Create the directories for saving the model checkpoints and plots

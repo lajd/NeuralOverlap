@@ -39,7 +39,9 @@ function get_inference_sequences(args, is_testing::Bool)::Array
         max_sequences = args.MAX_INFERENCE_SAMPLES
     end
     # Eval
-    all_sequences = Dataset.get_sequences(args, max_sequences)
+    all_sequences = Dataset.get_sequences(
+        args, max_sequences, fastq_filepath=args.INFERENCE_FASTQ_FILEPATH
+    )
     return all_sequences
 end
 
@@ -50,6 +52,8 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
      inference_sequences = get_inference_sequences(args, is_testing)
 
      num_inference_sequences = length(inference_sequences)
+
+     @info("Creating inference helper with %s %s", num_inference_sequences, is_testing)
 
      function batch_sequence_producer(args, chnl::Channel)
         i = 1
@@ -90,6 +94,7 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
     end
 
     function _predicted_nns(n_sequences::Int64, use_mmap_arrays::Bool = false; k_nns::Int64=1000)
+        mkpath(args.INFERENCE_MMAP_SAVE_DIR)
         if use_mmap_arrays == true
             predicted_nn_map_top_knn = Utils.mmap_array(
                 n_sequences,
@@ -186,16 +191,16 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
 
 
     function get_true_nn_overlap(;k::Int64=1000)
-        @info("Starting to find true NNs")
+        @info("Starting to find true NNs on %s sequences", length(inference_sequences))
         # Get the pairwise sequence distance array
         timeFindingTrueNNs = @elapsed begin
             true_nn_map = Dict()
             # TODO: This is inefficient and intended for small datasets
-            _, truepairwise_distances = Utils.pairwise_hamming_distance(inference_sequences)
+            _, true_pairwise_distances = Utils.pairwise_hamming_distance(inference_sequences)
 
-            for i in ProgressBar(1:size(truepairwise_distances)[1])
-                nns = sortperm(truepairwise_distances[i, 1:end])[1:k]
-                distances = truepairwise_distances[i, 1:end][nns]
+            for i in ProgressBar(1:size(true_pairwise_distances)[1])
+                nns = sortperm(true_pairwise_distances[i, 1:end])[1:k]
+                distances = true_pairwise_distances[i, 1:end][nns]
 
                 # Use FAISS 0-based indexing
                 nns = nns .- 1
@@ -212,7 +217,7 @@ function inferencehelper(args, embedding_model::Flux.Chain, calibration_model; u
         trainmode!(embedding_model, false)
 
         batch_sequence_iterator = Channel( (channel) -> batch_sequence_producer(args, channel), 1)
-        
+
         time_to_create_embedding_index = @elapsed begin
             faiss_index = Utils.create_embedding_index(
                 args, embedding_model, batch_sequence_iterator,

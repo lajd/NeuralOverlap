@@ -4,19 +4,28 @@ using StatsBase
 
 using Printf
 
-function read_sequence_data(max_sequences::Union{Int64, Float64}, max_sequence_length::Int64; fastq_filepath::String="/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix_train.fastq")
+function read_sequence_data(args, max_sequences::Union{Int64, Float64}; fastq_filepath::String="/home/jon/JuliaProjects/NeuralOverlap/data_fetch/phix_train.fastq")
     reader = open(FASTQ.Reader, fastq_filepath)
     sequence_set = Set{String}()
+
+    expected_set = Set(args.ALPHABET)
+    max_sequence_length = args.MAX_STRING_LENGTH
 
     for r in reader
         ## Do something
         seq = String(sequence(r))
 
         # Prefix
-        push!(sequence_set, seq[1:max_sequence_length])
+        prefix = seq[1:max_sequence_length]
+        if Set(prefix) == expected_set
+            push!(sequence_set, prefix)
+        end
 
         # Suffix
-        push!(sequence_set, seq[end - max_sequence_length + 1: end])
+        suffix = seq[end - max_sequence_length + 1: end]
+        if Set(suffix) == expected_set
+            push!(sequence_set, suffix)
+        end
     end
 
     sequence_array = collect(sequence_set)

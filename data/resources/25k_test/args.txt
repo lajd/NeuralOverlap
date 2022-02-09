@@ -3,7 +3,7 @@ ExperimentParams
   USE_SYNTHETIC_DATA: Bool false
   USE_SEQUENCE_DATA: Bool true
   TRAIN_EVAL_FASTQ_FILEPATH: String "data/raw_data/simulated_reads/acanthamoeba_castellanii_mamavirus/train_R1.fastq"
-  INFERENCE_FASTQ_FILEPATH: String "data/raw_data/simulated_reads/megavirus_chiliensis/infer_R1.fastq"
+  INFERENCE_FASTQ_FILEPATH: String "data/raw_data/simulated_reads/megavirus_chiliensis/infer_large_R1.fastq"
   ALPHABET: Array{Char}((4,))
   ALPHABET_SYMBOLS: Array{Symbol}((4,))
   ALPHABET_DIM: Int64 4
@@ -29,13 +29,13 @@ ExperimentParams
   DISTANCE_METHOD: String "l2"
   L2_NORMALIZE_EMBEDDINGS: Bool true
   DISTANCE_MATRIX_NORM_METHOD: String "max"
-  NUM_TRAIN_EXAMPLES: Int64 2000
-  NUM_EVAL_EXAMPLES: Int64 2000
-  NUM_TEST_EXAMPLES: Int64 2000
-  MAX_INFERENCE_SAMPLES: Int64 5000
+  NUM_TRAIN_EXAMPLES: Int64 10000
+  NUM_EVAL_EXAMPLES: Int64 5000
+  NUM_TEST_EXAMPLES: Int64 25000
+  MAX_INFERENCE_SAMPLES: Int64 10000
   EST_ERROR_N: Int64 1000
   BSIZE: Int64 256
-  NUM_EPOCHS: Int64 5
+  NUM_EPOCHS: Int64 50
   NUM_NNS_EXTRACTED: Int64 1000
   K_START: Int64 1
   K_END: Int64 1001
@@ -47,7 +47,7 @@ ExperimentParams
   EVAL_EVERY_N_EPOCHS: Int64 5
   L0rank: Float64 1.0
   L0emb: Float64 0.1
-  _N_LOSS_STEPS: Int32 1
+  _N_LOSS_STEPS: Int32 10
   LOSS_STEPS_DICT: Dict{Int64, Tuple{Float64, Float64}}
   NUM_BATCHES_PER_EPOCH: Int64 128
   USE_EXP_DECAY: Bool true
@@ -55,9 +55,9 @@ ExperimentParams
   EXP_DECAY_VALUE: Float64 0.5
   EXP_DECAY_CLIP: Float64 1.0e-5
   TERMINATE_ON_NAN: Bool true
-  EXPERIMENT_NAME: String "2022-02-08T01:44:48.851"
+  EXPERIMENT_NAME: String "2022-02-08T22:45:07.892"
   LATEST_EXPERIMENT_DIR: String "data/latest_experiment"
-  ARCHIVAL_EXERIMENT_DIR: String "data/experiments/2022-02-08T01:44:48.851"
+  ARCHIVAL_EXERIMENT_DIR: String "data/experiments/2022-02-08T22:45:07.892"
   MODEL_SAVE_DIR: String "data/latest_experiment/saved_models"
   DATASET_SAVE_PATH: String "data/latest_experiment/dataset.jld"
   PLOTS_SAVE_DIR: String "data/latest_experiment/saved_plots"
