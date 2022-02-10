@@ -11,9 +11,6 @@
 .CondaPkg
 *.fa*.txt
 
-# Plots
-*.png
-
 # mmaps
 *.bin
 
