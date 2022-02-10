@@ -222,7 +222,6 @@ function traininghelper(experimentParams)
     function get_optimizer()
         opt = ADAM(args.LR, (0.9, 0.999))
 
-
         if args.USE_EXP_DECAY == true
             opt = Flux.Optimise.Optimiser(
                 opt,

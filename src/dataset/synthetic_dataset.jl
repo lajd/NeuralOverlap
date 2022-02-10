@@ -19,7 +19,8 @@ function generate_synethetic_sequences(n_sequences::Union{Float64, Int64}, min_s
         push!(core_sequence_set, randstring(alphabet, n))
     end
 
-    # Make each core sequence have, on average, 100 similar sequences
+    # Randomly sample core sequences and create a sequence with predefined
+    # similarity
     while length(sequence_set) + length(core_sequence_set) < n_sequences
         n = rand(min_seq_length:max_seq_length)
         ref = rand(core_sequence_set)

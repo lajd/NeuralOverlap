@@ -49,6 +49,8 @@ module Dataset
             oneHotEncodedSequences = one_hot_encode_sequences(sequences, max_seq_length, alphabet_symbols)
         end
 
+        batch_keys = ["Idacr", "Idpos", "Idneg", "Sacr", "Spos", "Sneg", "Xacr", "Xpos", "Xneg", "Dpos", "Dneg", "DPosNeg"]
+
         timeGetpairwise_distances = @elapsed begin
             seqIdMap, true_distance_matrix = pairwise_distanceFun(sequences)
             meanDistance = mean(true_distance_matrix)
@@ -230,9 +232,8 @@ module Dataset
         end
 
         function batchToTuple(batch::Dict)
-            order = ["Idacr", "Idpos", "Idneg", "Sacr", "Spos", "Sneg", "Xacr", "Xpos", "Xneg", "Dpos", "Dneg", "DPosNeg"]
             output = []
-            for k in order
+            for k in batch_keys
                 v = batch[k]
                 push!(output, v)
             end
@@ -240,9 +241,8 @@ module Dataset
         end
 
         function extractBatchTupleSubset(batch::Dict, i::Int64, j::Int64)::Tuple
-            order = ["Idacr", "Idpos", "Idneg", "Sacr", "Spos", "Sneg", "Xacr", "Xpos", "Xneg", "Dpos", "Dneg", "DPosNeg"]
             output = []
-            for k in order
+            for k in batch_keys
                 v = batch[k]
                 dim = length(size(v))
                 if dim == 1

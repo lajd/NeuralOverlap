@@ -41,7 +41,6 @@ function main()::Nothing
         KERNEL_SIZE = 3,
         EMBEDDING_DIM = 128,
         DISTANCE_METHOD ="l2",
-        INFERENCE_FASTQ_FILEPATH = "data/raw_data/simulated_reads/megavirus_chiliensis/infer_large_R1.fastq"
     )
 
     run_experiment(experiment_args)
