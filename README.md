@@ -20,18 +20,22 @@ In order to scale the method for inference, we index sequence embeddings into Fa
 
 ## Methodology
 
-### <ins> Mapping read embeddings to Euclidean space for efficient nearest neighbour search </ins>
-We adopt the same methodology as
-[Convolutional-Embedding-for-Edit-Distance](https://arxiv.org/abs/2001.11692), whereby we train a CNN model to learn embeddings for sequence reads, mapping reads to a space where Euclidean distance is representative of edit distance.
-
-By mapping each sequence read to Euclidean space, we can leverage vector quantization methods such as [Faiss](https://github.com/facebookresearch/faiss), where indices permit very efficient approximate nearest neighbour search. Leveraging such technologies is particularly helpful for this use case, since the distribution of nearest neighbours is highly non-uniform (there are only a handful of similar reads and a large number of highly dissimilar reads, with very few datapoints in between).  
-
-
 ### <ins> Simulated sequence reads datasets </ins>
 
 To validate our method, we use simulated sequence reads obtained by sampling real-world genomic (viral) datasets. In particular, we simulate Illumina MiSeq reads (300bp long) by sampling segments from the RefSeq genomes of Acanthamoeba Castellanii Mamavirus and Megavirus Chiliensis viruses.
 
 Because our model by default is trained to compare sequences of 128bp in length, and in the spirit of the Overlap Layout Concensus (OLC) algorithm's methodology, we extract 128bp prefix and suffix segments from each simulated read to populate our datasets. In this way, our network learns to compare the prefix/suffix of one read against the prefix/suffix of all other reads in the dataset.
+
+### <ins> Sequence similarity </ins>
+In our experiment, we use the Hamming distance to measure the similarities of sequences as a simplification. Because Levenshtein distance is more appropriate for genomic applications, this is an area for future work.
+
+### <ins> Mapping read embeddings to Euclidean space for efficient nearest neighbour search </ins>
+We adopt the same methodology as
+[Convolutional-Embedding-for-Edit-Distance](https://arxiv.org/abs/2001.11692), whereby we train a CNN model to learn embeddings for sequence reads, mapping reads to a space where Euclidean distance is representative of edit distance.
+
+During the training process, we use triplet loss to optimize for both reconstruction error (Euclidean distance between similar sequences should be small) and rank error (distance should be smaller for more similar sequences).
+
+By mapping each sequence read to Euclidean space, we can leverage vector quantization methods such as [Faiss](https://github.com/facebookresearch/faiss), where indices permit very efficient approximate nearest neighbour search. Leveraging such technologies is particularly helpful for this use case, since the distribution of nearest neighbours is highly non-uniform (there are only a handful of similar reads and a large number of highly dissimilar reads, with very few datapoints in between).  
 
 ### <ins> Using top-T-recall-at-K as our primary performance metric </ins>
 
@@ -41,7 +45,7 @@ In principle, the proposed method is a recommendation system for identifying the
 ## Installation
 
 ### <ins> Prerequisites </ins>
-- Linux with GPU (tested on Ubuntu 20.04, CUDA 11.4, nvidia driver 470.82.01)
+- Linux with GPU (tested on Ubuntu 20.04, CUDA 11.4, nvidia driver 470.82.01, Nvidia 2080Ti)
 - Julia (tested on Version 1.6.4)
 - Python >= 3.6
 
@@ -53,7 +57,7 @@ cd NeuralOverlap
 ```
 
 
-### <ins> Activating the Julia encironment </ins>
+### <ins> Activating the Julia environment </ins>
 Activate the environment and perform precompilation.
 
 ```shell script
@@ -70,6 +74,7 @@ Pkg.precompile()
 
 ## Preparing the dataset
 
+In a new terminal, cd into the repository root and install the Python requirements
 ### <ins> Install python dependencies </ins>
 ```shell script
 pip install -r requirements.txt
@@ -233,3 +238,5 @@ There is a long way to go before a fully neural-network genome assembly can take
 In the [Overlap Layout Consensus](https://www.cs.jhu.edu/~langmea/resources/lecture_notes/assembly_olc.pdf) (OLC) method of genome assembly, after overlapping read segments are identified, an read overlap graph must be constructed. After this, the "layout" step permits the identification of a Hamiltonian path through the graph, which identifies the correct order of reads as they appear in the true genome. The read-overlap graph typically contains many complexities which can be simplified and reduced, and a [neural network approach](https://arxiv.org/abs/2011.05013) has already been presented to accomplish such tasks.  
 
 A simplified read-overlap graph permits the identification of Hamiltonian paths throughout the graph, which represent ordered sequences of reads as they appear in the true genome. In general, multiple such non-connected paths (contigs) may be identified, and further processing may be required to to arrange/order such contigs into larger segments (scaffolds). These scaffolds can then be arranged and corrected to obtain a draft for the true genome.
+
+[Some proposals](https://arxiv.org/abs/2102.02649) use reinforcement learning to assemble the genome from raw sequence reads alone, which represents an attractive approach to fully-neural assembly. These methods, which aim to order sequence reads by assigning reward to read overlaps which move the agent closer to a valid terminal state, show poor performance on even toy datasets due to the explosive state space. It's our opinion, however, that by providing an RL agent effective tools for dealing with the assembly problem (such as the methods discussed here), these methods may help pave the path towards fully neural assembly on realistic datasets. RL methods become even more attractive when considering the plethora of evolutionary genomic data available across all organisms, since such agents may learn to understand the mechanisms of evolution far better than algorithms can learn on isolated datasets.
